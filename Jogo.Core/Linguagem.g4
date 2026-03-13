@@ -1,0 +1,86 @@
+grammar Linguagem;
+
+// ==========================================
+// PARSER (Regras Sintáticas - Minúsculas)
+// ==========================================
+
+programa: comando+ EOF;
+
+// Os tipos de comandos que o jogador pode digitar
+comando: declaracaoVariavel
+       | atribuicao
+       | estruturaSe
+       | estruturaEnquanto
+       | chamadaFuncao;
+
+// Declaração de variável 
+declaracaoVariavel: TIPO ID '=' expressao;
+
+// Atribuição de valor 
+atribuicao: ID '=' expressao;
+
+// Controle de fluxo: se(condição):
+estruturaSe: SE '(' expressao ')' ':' comando+;
+
+// Controle de fluxo: enquanto(condição):
+estruturaEnquanto: ENQUANTO '(' expressao ')' ':' comando+;
+
+// Chamada de função (ex: mover(Norte) ou atacar(inimigo, Fogo))
+chamadaFuncao: ID '(' (expressao (',' expressao)*)? ')';
+
+// Expressões matemáticas, lógicas e estruturas de dados
+expressao: expressao (MULT | DIV | MOD) expressao
+         | expressao (SOMA | SUB) expressao
+         | expressao (MAIOR_IGUAL | MENOR_IGUAL | IGUAL) expressao
+         | expressao (E | OU) expressao
+         | ID
+         | NUMERO_INT
+         | NUMERO_FLOAT
+         | BOOLEANO
+         | STRING_LIT
+         | chamadaFuncao
+         | '(' expressao ')'
+         | lista
+         | acessoLista;
+
+// Listas e acesso por índice (ex: vetor = [1, 2, 3] e vetor[0])
+lista: '[' (expressao (',' expressao)*)? ']';
+acessoLista: ID '[' expressao ']';
+
+
+// ==========================================
+// LEXER (Vocabulário / Tokens - MAIÚSCULAS)
+// ==========================================
+
+// Tipos primitivos 
+TIPO: 'int' | 'float' | 'bool' | 'string';
+
+// Palavras reservadas
+SE: 'se';
+ENQUANTO: 'enquanto';
+
+// Valores Lógicos
+BOOLEANO: 'Verdadeiro' | 'Falso';
+
+// Operadores
+SOMA: '+';
+SUB: '-';
+MULT: '*';
+DIV: '/';
+MOD: '%';
+E: 'e';
+OU: 'ou';
+IGUAL: '==';
+MAIOR_IGUAL: '>=';
+MENOR_IGUAL: '<=';
+
+// Identificadores (Nomes de variáveis e funções)
+ID: [a-zA-Z_][a-zA-Z0-9_]*;
+
+// Tipos numéricos e texto
+NUMERO_INT: [0-9]+;
+NUMERO_FLOAT: [0-9]+ '.' [0-9]+;
+STRING_LIT: '"' ~["]* '"';
+
+// Ignorar espaços, tabs e quebras de linha na hora de ler o código
+WS: [ \t\r\n]+ -> skip;
