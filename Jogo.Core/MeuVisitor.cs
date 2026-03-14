@@ -1,17 +1,50 @@
 using System;
+using System.Collections.Generic;
 using Antlr4.Runtime.Misc;
 
 namespace Jogo.Core
 {
     public class MeuVisitor : LinguagemBaseVisitor<object>
     {
-        // Dicionário de variáveis
+        // Dicionário de variáveis (Memória do Jogo)
         private Dictionary<string, object> _memoria = new Dictionary<string, object>();
         private readonly IAcoesDoJogo _acoesDoJogo;
+
+        // Lista de palavras sagradas que o jogador não pode usar como nome de variável
+        private HashSet<string> _palavrasReservadas = new HashSet<string> { 
+            // Direções
+            "norte", "sul", "leste", "oeste", 
+            // Elementos
+            "fogo", "agua", "gelo", "raio",
+            // Alvos
+            "mais_perto", "aleatorio", "menos_vida",
+            // Ações / Comandos
+            "mover", "atacar"
+        };
 
         public MeuVisitor(IAcoesDoJogo acoesDoJogo)
         {
             _acoesDoJogo = acoesDoJogo;
+
+            // VARIÁVEIS FIXAS DO SISTEMA 
+            // Direções
+            _memoria["norte"] = "norte";
+            _memoria["sul"] = "sul";
+            _memoria["leste"] = "leste";
+            _memoria["oeste"] = "oeste";
+
+            // Elementos
+            _memoria["fogo"] = "fogo";
+            _memoria["agua"] = "agua";
+            _memoria["gelo"] = "gelo";
+            _memoria["raio"] = "raio";
+
+            // Alvos
+            _memoria["mais_perto"] = "mais_perto";
+            _memoria["aleatorio"] = "aleatorio";
+            _memoria["menos_vida"] = "menos_vida";
+
+            
         }
 
         public override object VisitExpressao([NotNull] LinguagemParser.ExpressaoContext context)
@@ -127,13 +160,19 @@ namespace Jogo.Core
                 throw new Exception($"Erro de Operação: Não sei como operar '{esquerdo.GetType().Name}' com '{direito.GetType().Name}'.");
             }
 
-            return null!;            
+            return null!;
         }
 
         public override object VisitDeclaracaoVariavel([NotNull] LinguagemParser.DeclaracaoVariavelContext context)
         {
             string tipoDeclarado = context.TIPO().GetText();
             string nomeDaVariavel = context.ID().GetText();
+
+            // -- ESCUDO DE PALAVRAS RESERVADAS --
+            if (_palavrasReservadas.Contains(nomeDaVariavel)) {
+                throw new Exception($"Erro: '{nomeDaVariavel}' é uma palavra reservada do sistema e não pode ser usada como variável.");
+            }
+
             object valorResolvido = Visit(context.expressao());
 
             // VERIFICAÇÃO DE TIPO
@@ -177,6 +216,11 @@ namespace Jogo.Core
         {
             string nomeDaVariavel = context.ID().GetText();
 
+            // -- ESCUDO DE CONSTANTES --
+            if (_palavrasReservadas.Contains(nomeDaVariavel)) {
+                throw new Exception($"Erro: '{nomeDaVariavel}' é uma constante do sistema e não pode ser alterada.");
+            }
+
             if (!_memoria.ContainsKey(nomeDaVariavel))
             {
                 throw new Exception($"Erro: A variável '{nomeDaVariavel}' não foi declarada!");
@@ -198,37 +242,77 @@ namespace Jogo.Core
 
             Console.WriteLine($"[Atribuição] A variável '{nomeDaVariavel}' foi atualizada para o valor '{novoValor}'");
 
-            return null;
+            return null!;
         }
         
-        // **ANALISAR impl VisitFunção!**
         public override object VisitChamadaFuncao([NotNull] LinguagemParser.ChamadaFuncaoContext context)
         {
             string nomeDaFuncao = context.ID().GetText();
+            int qtdArgs = context.expressao().Length;
 
-            // pega os argumentos separadamente
-            string arg1 = context.expressao().Length > 0 ? context.expressao()[0].GetText() : "vazio";
-            string arg2 = context.expressao().Length > 1 ? context.expressao()[1].GetText() : "vazio";
+            // Resolve os valores usando o Visit (permite usar as variáveis e constantes)
+            object arg1Raw = qtdArgs > 0 ? Visit(context.expressao(0)) : "vazio";
+            object arg2Raw = qtdArgs > 1 ? Visit(context.expressao(1)) : "vazio";
 
-            // LOG DE DEPURAÇÃO
-            Console.WriteLine($"[Cerebro] Comando detectado: {nomeDaFuncao}({arg1}, {arg2})");
+            // Transforma em string segura para não dar erro nulo
+            string arg1 = arg1Raw?.ToString() ?? "vazio";
+            string arg2 = arg2Raw?.ToString() ?? "vazio";
 
-            // caso sensitive
-            if (nomeDaFuncao == "atacar")
+            Console.WriteLine($"[DEBUG] Comando Detectado: {nomeDaFuncao}({arg1}, {arg2})");
+
+            switch (nomeDaFuncao)
             {
-                //passa alvo e tipo separadamente para a Interface
-                _acoesDoJogo.Atacar(arg1, arg2); 
-            }
-            else if (nomeDaFuncao == "mover")
-            {
-                _acoesDoJogo.Mover(arg1);
-            }
-            else 
-            {
-                Console.WriteLine($"[ERRO] Comando '{nomeDaFuncao}' nao existe ou ainda nao implementada.");
+                case "atacar":
+                    if (qtdArgs < 2) 
+                    {
+                        _acoesDoJogo.NotificarErro("Erro: 'atacar' exige (alvo, elemento).");
+                    } 
+                    else 
+                    {
+                        bool alvoValido = arg1 == "mais_perto" || arg1 == "aleatorio" || arg1 == "menos_vida";
+                        bool elementoValido = arg2 == "fogo" || arg2 == "agua" || arg2 == "gelo" || arg2 == "raio";
+
+                        if (!alvoValido)
+                        {
+                            _acoesDoJogo.NotificarErro($"Erro: Alvo '{arg1}' inválido. Use: mais_perto, aleatorio, menos_vida.");
+                        }
+                        else if (!elementoValido) 
+                        {
+                            _acoesDoJogo.NotificarErro($"Erro: Elemento '{arg2}' inválido. Use: fogo, agua, gelo, raio.");
+                        }
+                        else 
+                        {
+                            Console.WriteLine($"[SUCESSO] Godot -> Atacar({arg1}, {arg2})");
+                            _acoesDoJogo.Atacar(arg1, arg2);
+                        }
+                    }
+                    break;
+
+                case "mover":
+                    if (qtdArgs < 1) 
+                    {
+                        _acoesDoJogo.NotificarErro("Erro: 'mover' precisa de uma direção.");
+                    } 
+                    else 
+                    {
+                        if (arg1 == "norte" || arg1 == "sul" || arg1 == "leste" || arg1 == "oeste") 
+                        {
+                            Console.WriteLine($"[SUCESSO] Godot -> Mover({arg1})");
+                            _acoesDoJogo.Mover(arg1);
+                        } 
+                        else 
+                        {
+                            _acoesDoJogo.NotificarErro($"Erro: Direção '{arg1}' inválida para a grade.");
+                        }
+                    }
+                    break;
+
+                default:
+                    _acoesDoJogo.NotificarErro($"Erro: O comando '{nomeDaFuncao}' não é reconhecido.");
+                    break;
             }
 
-            return base.VisitChamadaFuncao(context);
+            return null!; 
         }
     }
 }

@@ -6,5 +6,6 @@ namespace Jogo.Core
     {
         void Mover(string direcao);
         void Atacar(string alvo, string tipo);
+        void NotificarErro(string mensagem); // erro pro Godot
     }
 }
