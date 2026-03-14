@@ -204,32 +204,30 @@ namespace Jogo.Core
         // **ANALISAR impl VisitFunção!**
         public override object VisitChamadaFuncao([NotNull] LinguagemParser.ChamadaFuncaoContext context)
         {
-            // Pega o nome da função (ex: mover, atacar, escapar)
             string nomeDaFuncao = context.ID().GetText();
 
-            // Pega o que está dentro do parênteses (ex: Norte, Fogo)
-            String argumentos;
-            if (context.expressao() != null)
-            {
-                argumentos = context.expressao()[0].GetText();                                    
-                if (context.expressao().Length >= 1)
-                {
-                    for (int i = 1; i < context.expressao().Length; i++)
-                    {
-                        argumentos += $", {context.expressao()[i].GetText()}";
-                    }
-                }
-            }
-            else
-            {
-                argumentos = "nenhum";
-            }
-            
+            // pega os argumentos separadamente
+            string arg1 = context.expressao().Length > 0 ? context.expressao()[0].GetText() : "vazio";
+            string arg2 = context.expressao().Length > 1 ? context.expressao()[1].GetText() : "vazio";
 
-            // Log de Depuração, logo função call do Godot
-            Console.WriteLine($"[Cérebro Ativado] O jogador quer executar a função '{nomeDaFuncao}' com o argumento(s) '{argumentos}'");
+            // LOG DE DEPURAÇÃO
+            Console.WriteLine($"[Cerebro] Comando detectado: {nomeDaFuncao}({arg1}, {arg2})");
 
-            // Continua
+            // caso sensitive
+            if (nomeDaFuncao == "atacar")
+            {
+                //passa alvo e tipo separadamente para a Interface
+                _acoesDoJogo.Atacar(arg1, arg2); 
+            }
+            else if (nomeDaFuncao == "mover")
+            {
+                _acoesDoJogo.Mover(arg1);
+            }
+            else 
+            {
+                Console.WriteLine($"[ERRO] Comando '{nomeDaFuncao}' nao existe ou ainda nao implementada.");
+            }
+
             return base.VisitChamadaFuncao(context);
         }
     }
