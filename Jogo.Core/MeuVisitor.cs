@@ -11,10 +11,26 @@ namespace Jogo.Core
             string nomeDaFuncao = context.ID().GetText();
 
             // Pega o que está dentro do parênteses (ex: Norte, Fogo)
-            string argumentos = context.expressao() != null ? context.expressao()[0].GetText() : "nenhum";
+            String argumentos;
+            if (context.expressao() != null)
+            {
+                argumentos = context.expressao()[0].GetText();                                    
+                if (context.expressao().Length >= 1)
+                {
+                    for (int i = 1; i < context.expressao().Length; i++)
+                    {
+                        argumentos += $", {context.expressao()[i].GetText()}";
+                    }
+                }
+            }
+            else
+            {
+                argumentos = "nenhum";
+            }
+            
 
             // Log de Depuração, logo função call do Godot
-            Console.WriteLine($"[Cérebro Ativado] O jogador quer executar a função '{nomeDaFuncao}' com o argumento '{argumentos}'");
+            Console.WriteLine($"[Cérebro Ativado] O jogador quer executar a função '{nomeDaFuncao}' com o argumento(s) '{argumentos}'");
 
             // Continua
             return base.VisitChamadaFuncao(context);
