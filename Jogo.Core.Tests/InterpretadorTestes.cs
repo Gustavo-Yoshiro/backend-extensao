@@ -7,7 +7,6 @@ namespace Jogo.Core.Tests
 {
     public class InterpretadorTestes
     {
-        // --- TESTES DE SUCESSO (CAMINHO FELIZ) ---
 
         [Fact]
         public void Deve_Mover_Corretamente()
@@ -36,7 +35,7 @@ namespace Jogo.Core.Tests
             jogoMock.Received(1).Atacar("orc", "gelo");
         }
 
-        // --- TESTES DE ERRO (CAMINHO TRISTE) ---
+        // TESTES DE ERRO
 
         [Fact]
         public void Nao_Deve_Aceitar_Comando_Inexistente()
@@ -44,7 +43,7 @@ namespace Jogo.Core.Tests
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
-            string codigo = "pular()"; // Essa função não existe no nosso 'if'
+            string codigo = "pular()"; 
             
             Executar(codigo, visitor);
 
@@ -59,7 +58,7 @@ namespace Jogo.Core.Tests
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
-            string codigo = "atacar()"; // Jogador esqueceu os alvos
+            string codigo = "atacar()"; 
             
             Executar(codigo, visitor);
 
@@ -73,7 +72,7 @@ namespace Jogo.Core.Tests
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
-            string codigo = "Mover(sul)"; // 'M' maiúsculo deve falhar
+            string codigo = "Mover(sul)"; 
             
             Executar(codigo, visitor);
 
