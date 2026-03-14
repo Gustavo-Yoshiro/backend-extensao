@@ -5,8 +5,6 @@ namespace Jogo.Core
 {
     public class MeuVisitor : LinguagemBaseVisitor<object>
     {
-<<<<<<< Updated upstream
-=======
         // Dicionário de variáveis
         private Dictionary<string, object> _memoria = new Dictionary<string, object>();
         private readonly IAcoesDoJogo _acoesDoJogo;
@@ -204,7 +202,6 @@ namespace Jogo.Core
         }
         
         // **ANALISAR impl VisitFunção!**
->>>>>>> Stashed changes
         public override object VisitChamadaFuncao([NotNull] LinguagemParser.ChamadaFuncaoContext context)
         {
             // Pega o nome da função (ex: mover, atacar, escapar)
