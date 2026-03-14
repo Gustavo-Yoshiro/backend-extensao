@@ -79,6 +79,18 @@ namespace Jogo.Core.Tests
             jogoMock.DidNotReceive().Mover(Arg.Any<string>());
         }
 
+        [Fact]
+        public void Teste_Aberto()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            string codigo = "float jao = 2.0"; 
+            
+            Executar(codigo, visitor);
+        }
+    
+
         // Método auxiliar para não repetir código de setup do ANTLR
         private void Executar(string input, MeuVisitor visitor)
         {
