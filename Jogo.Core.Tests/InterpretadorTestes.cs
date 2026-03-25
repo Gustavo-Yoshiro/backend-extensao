@@ -203,6 +203,77 @@ namespace Jogo.Core.Tests
             Assert.Contains("constante", excecao.Message.ToLower());
         }
 
+        // --- TESTES DE CONTROLE DE FLUXO (SE) ---
+
+        [Fact]
+        public void Deve_Executar_Comandos_Dentro_Do_Se_Quando_Verdadeiro()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            string codigo = "int vidas = 1\n" +
+                            "se (vidas == 1):\n" +
+                            "    mover(norte)"+
+                            "fim se"; 
+            Executar(codigo, visitor);
+
+            jogoMock.Received(1).Mover("norte");
+        }
+
+        [Fact]
+        public void Nao_Deve_Executar_Comandos_Dentro_Do_Se_Quando_Falso()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            string codigo = "int vidas = 0\n" +
+                            "se (vidas == 1):\n" +
+                            "    mover(norte)" +
+                            "fim se"; 
+            
+            Executar(codigo, visitor);
+
+            jogoMock.DidNotReceive().Mover(Arg.Any<string>());
+        }
+
+        // --- TESTES DE LAÇO DE REPETIÇÃO (ENQUANTO) ---
+
+        [Fact]
+        public void Deve_Repetir_Comandos_Enquanto_Condicao_For_Verdadeira()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            // O jogador quer dar 3 passos para o norte
+            string codigo = "int passos = 0\n" +
+                            "enquanto (passos < 3):\n" +
+                            "    mover(norte)\n" +
+                            "    passos = passos + 1\n" +
+                            "fim enquanto"; 
+            
+            Executar(codigo, visitor);
+
+            // O MOCK confere se a função Mover("norte") foi chamada EXATAMENTE 3 vezes
+            jogoMock.Received(3).Mover("norte");
+        }
+
+        [Fact]
+        public void Nao_Deve_Entrar_No_Enquanto_Se_Condicao_Inicial_For_Falsa()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            string codigo = "int passos = 5\n" +
+                            "enquanto (passos < 3):\n" +
+                            "    mover(sul)\n" +
+                            "    passos = passos + 1\n" +
+                            "fim enquanto"; 
+            
+            Executar(codigo, visitor);
+
+            jogoMock.DidNotReceive().Mover(Arg.Any<string>());
+        }
+
         [Fact]
         public void Deve_Lancar_Excecao_Ao_Declarar_Variavel_Com_Palavra_Reservada()
         {

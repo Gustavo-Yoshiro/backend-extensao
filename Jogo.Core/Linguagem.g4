@@ -20,10 +20,10 @@ declaracaoVariavel: TIPO ID '=' expressao;
 atribuicao: ID '=' expressao;
 
 // Controle de fluxo: se(condição):
-estruturaSe: SE '(' expressao ')' ':' comando+;
+estruturaSe: SE '(' expressao ')' ':' comando+ 'fim' 'se';
 
 // Controle de fluxo: enquanto(condição):
-estruturaEnquanto: ENQUANTO '(' expressao ')' ':' comando+;
+estruturaEnquanto: ENQUANTO '(' expressao ')' ':' comando+ 'fim' 'enquanto';
 
 // Chamada de função (ex: mover(Norte) ou atacar(inimigo, Fogo))
 chamadaFuncao: ID '(' (expressao (',' expressao)*)? ')';
@@ -31,7 +31,7 @@ chamadaFuncao: ID '(' (expressao (',' expressao)*)? ')';
 // Expressões matemáticas, lógicas e estruturas de dados
 expressao: expressao (MULT | DIV | MOD) expressao
          | expressao (SOMA | SUB) expressao
-         | expressao (MAIOR_IGUAL | MENOR_IGUAL | IGUAL) expressao
+         | expressao ( MAIOR | MENOR | MAIOR_IGUAL | MENOR_IGUAL | IGUAL) expressao
          | expressao (E | OU) expressao
          | ID
          | NUMERO_INT
@@ -71,6 +71,8 @@ MOD: '%';
 E: 'e';
 OU: 'ou';
 IGUAL: '==';
+MENOR: '<';
+MAIOR: '>';
 MAIOR_IGUAL: '>=';
 MENOR_IGUAL: '<=';
 

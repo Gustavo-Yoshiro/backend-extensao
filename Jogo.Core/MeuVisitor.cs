@@ -133,6 +133,9 @@ namespace Jogo.Core
 
                         if (context.MAIOR_IGUAL() != null) return fEsq >= fDir;
                         if (context.MENOR_IGUAL() != null) return fEsq <= fDir;
+                        if (context.MAIOR() != null) return fEsq > fDir;
+                        if (context.MENOR() != null) return fEsq < fDir;
+
                     }
                     else
                     {
@@ -148,6 +151,8 @@ namespace Jogo.Core
 
                         if (context.MAIOR_IGUAL() != null) return iEsq >= iDir;
                         if (context.MENOR_IGUAL() != null) return iEsq <= iDir;
+                        if (context.MAIOR() != null) return iEsq > iDir;
+                        if (context.MENOR() != null) return iEsq < iDir;
                     }
                 }
 
@@ -182,7 +187,7 @@ namespace Jogo.Core
             _memoria[nomeDaVariavel] = valorResolvido;
 
             Console.WriteLine($"[Sucesso] Criou a variável '{tipoDeclarado} {nomeDaVariavel}' com valor '{valorResolvido}'");
-            return null;
+            return null!;
         }
 
         // Método auxiliar
@@ -241,6 +246,72 @@ namespace Jogo.Core
             _memoria[nomeDaVariavel] = novoValor;
 
             Console.WriteLine($"[Atribuição] A variável '{nomeDaVariavel}' foi atualizada para o valor '{novoValor}'");
+
+            return null!;
+        }
+
+        public override object VisitEstruturaSe([NotNull] LinguagemParser.EstruturaSeContext context)
+        {
+            object resultadoCondicao = Visit(context.expressao());
+            if (resultadoCondicao is bool condicao)
+            {
+                if (condicao)
+                {
+                    Console.WriteLine("[Controle de Fluxo] O 'se' é Verdadeiro! Entrando no bloco...");
+
+                    foreach (var cmd in context.comando())
+                    {
+                        Visit(cmd);
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("[Controle de Fluxo] O 'se' é Falso. Ignorando os comandos do bloco...");
+                }
+            }
+            else
+            {
+                throw new Exception($"Erro de Tipo: A condição do 'se' precisa ser Verdadeiro ou Falso, mas você passou um '{resultadoCondicao.GetType().Name}'.");
+            }
+
+            return null!;
+
+        }
+        
+        public override object VisitEstruturaEnquanto([NotNull] LinguagemParser.EstruturaEnquantoContext context)
+        {
+            int contador = 0;
+
+            object resultadoCondicao = Visit(context.expressao());
+
+            if (resultadoCondicao is bool condicao)
+            {
+                while (condicao)
+                {
+                    contador++;
+                    foreach (var cmd in context.comando())
+                    {
+                        Visit(cmd);
+                    }
+
+                    resultadoCondicao = Visit(context.expressao());
+
+                    if (resultadoCondicao is bool novaCondicao)
+                    {
+                        condicao = novaCondicao;
+                    }
+                    else
+                    {
+                        throw new Exception("Erro: A condição do 'enquanto' deixou de ser Verdadeiro ou Falso no meio da execução.");
+                    }
+                }
+
+                Console.WriteLine($"[Controle de Fluxo] O 'enquanto' terminou após {contador} repetições.");
+            }
+            else
+            {
+                throw new Exception($"Erro de Tipo: A condição do 'enquanto' precisa ser Verdadeiro ou Falso.");
+            }
 
             return null!;
         }
