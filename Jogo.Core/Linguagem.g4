@@ -19,14 +19,17 @@ declaracaoVariavel: TIPO ID '=' expressao;
 // Atribuição de valor 
 atribuicao: ID '=' expressao;
 
-// Controle de fluxo: se(condição):
-estruturaSe: SE '(' expressao ')' ':' comando+ 'fim' 'se';
+// Controle de fluxo: se(condição): ... senao: ... fim se
+estruturaSe: SE '(' expressao ')' ':' comando+ estruturaSenao? 'fim' 'se';
+
+// O bloco senão
+estruturaSenao: 'senao' ':' comando+;
 
 // Controle de fluxo: enquanto(condição):
 estruturaEnquanto: ENQUANTO '(' expressao ')' ':' comando+ 'fim' 'enquanto';
 
-// Chamada de função (ex: mover(Norte) ou atacar(inimigo, Fogo))
-chamadaFuncao: ID '(' (expressao (',' expressao)*)? ')';
+// Permite chamadas simples 'funcao()' ou membros 'objeto.funcao()'
+chamadaFuncao: (objeto=ID '.')? funcao=ID '(' (expressao (',' expressao)*)? ')';
 
 // Expressões matemáticas, lógicas e estruturas de dados
 expressao: expressao (MULT | DIV | MOD) expressao
