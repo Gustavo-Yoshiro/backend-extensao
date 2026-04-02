@@ -19,19 +19,22 @@ declaracaoVariavel: TIPO ID '=' expressao;
 // Atribuição de valor 
 atribuicao: ID '=' expressao;
 
-// Controle de fluxo: se(condição):
-estruturaSe: SE '(' expressao ')' ':' comando+;
+// Controle de fluxo: se(condição): ... senao: ... fim se
+estruturaSe: SE '(' expressao ')' ':' comando+ estruturaSenao? 'fim' 'se';
+
+// O bloco senão
+estruturaSenao: 'senao' ':' comando+;
 
 // Controle de fluxo: enquanto(condição):
-estruturaEnquanto: ENQUANTO '(' expressao ')' ':' comando+;
+estruturaEnquanto: ENQUANTO '(' expressao ')' ':' comando+ 'fim' 'enquanto';
 
-// Chamada de função (ex: mover(Norte) ou atacar(inimigo, Fogo))
-chamadaFuncao: ID '(' (expressao (',' expressao)*)? ')';
+// Permite chamadas simples 'funcao()' ou membros 'objeto.funcao()'
+chamadaFuncao: (objeto=ID '.')? funcao=ID '(' (expressao (',' expressao)*)? ')';
 
 // Expressões matemáticas, lógicas e estruturas de dados
 expressao: expressao (MULT | DIV | MOD) expressao
          | expressao (SOMA | SUB) expressao
-         | expressao (MAIOR_IGUAL | MENOR_IGUAL | IGUAL) expressao
+         | expressao ( MAIOR | MENOR | MAIOR_IGUAL | MENOR_IGUAL | IGUAL) expressao
          | expressao (E | OU) expressao
          | ID
          | NUMERO_INT
@@ -71,6 +74,8 @@ MOD: '%';
 E: 'e';
 OU: 'ou';
 IGUAL: '==';
+MENOR: '<';
+MAIOR: '>';
 MAIOR_IGUAL: '>=';
 MENOR_IGUAL: '<=';
 
