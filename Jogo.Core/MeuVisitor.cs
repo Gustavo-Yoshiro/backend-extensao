@@ -376,37 +376,16 @@ namespace Jogo.Core
                     return _jogo.PodeMover(dirPode);
         
                 case "atacar":
-                    if (args.Count != 2) { _jogo.NotificarErro("'atacar' exige 2 argumentos."); return null!; }
-        
-                    object alvo = args[0];
-                    string elemento = args[1].ToString()!;
-        
-                    if (alvo is string alvoStr)
-                    {
-                        var alvosValidos = new List<string> { "mais_perto", "menos_vida", "aleatorio" };
-                        if (!alvosValidos.Contains(alvoStr))
-                        {
-                            _jogo.NotificarErro($"Alvo '{alvoStr}' inválido.");
-                            return null!;
-                        }
-                    }
-        
-                    var elementosValidos = new List<string> { "fogo", "gelo", "raio", "Agua", "agua" };
-                    if (!elementosValidos.Contains(elemento))
-                    {
-                        _jogo.NotificarErro($"Elemento '{elemento}' inválido.");
-                        return null!;
-                    }
-        
+                    if (args.Count != 2) { _jogo.NotificarErro("'atacar' exige 2 parâmetros: alvo (texto) e tipo de ataque (texto)."); return null!; }
                     Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
-                    _jogo.Atacar(alvo, elemento);
+                    _jogo.Atacar(args[0].ToString()!, args[1].ToString()!);
                     return null!;
         
                 case "nomeInimigo":
                     if (args.Count != 1) { _jogo.NotificarErro("'nomeInimigo' exige 1 alvo."); return ""; }
                     
                     Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
-                    return _jogo.GetNomeInimigo(args[0]);
+                    return _jogo.GetNomeInimigo(args[0].ToString()!);
         
                 // ==========================================
                 // STATUS E MAPA
@@ -431,15 +410,21 @@ namespace Jogo.Core
                     Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
                     return _jogo.EscanearArea();
         
-                case "posicao":
-                    if (args.Count != 0) { _jogo.NotificarErro("'posicao' não aceita argumentos."); return null!; }
-                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
-                    return _jogo.GetPosicaoPlayer();
-        
-                case "tesouro":
-                    if (args.Count != 0) { _jogo.NotificarErro("'tesouro' não aceita argumentos."); return null!; }
-                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
-                    return _jogo.GetPosicaoTesouro();
+                case "posicaoX":
+                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' chamada.");
+                    return _jogo.GetPosicaoPlayerX();
+
+                case "posicaoY":
+                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' chamada.");
+                    return _jogo.GetPosicaoPlayerY();
+
+                case "tesouroX":
+                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' chamada.");
+                    return _jogo.GetPosicaoTesouroX();
+
+                case "tesouroY":
+                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' chamada.");
+                    return _jogo.GetPosicaoTesouroY();
         
                 case "escapar":
                     if (args.Count != 0) { _jogo.NotificarErro("'escapar' não aceita argumentos."); return null!; }
