@@ -6,6 +6,8 @@ namespace Jogo.Core
 {
     public class MeuVisitor : LinguagemBaseVisitor<object>
     {
+        private const int DELAY_TRANSICAO_CENA = 1000;
+
         // Dicionário de variáveis (Memória do Jogo)
         private Dictionary<string, object> _memoria = new Dictionary<string, object>();
         private readonly IAcoesDoJogo _jogo;
@@ -13,9 +15,7 @@ namespace Jogo.Core
         // Lista de palavras sagradas que o jogador não pode usar como nome de variável
         private HashSet<string> _palavrasReservadas = new HashSet<string> { 
             // Direções
-            "Cima", "Baixo", "Direita", "Esquerda", "Inimigo", "Arena", "Ataque", "Verdadeiro", "Falso",
-            // Elementos
-            "fogo", "agua", "gelo", "raio",
+            "Cima", "Baixo", "Direita", "Esquerda", "Inimigo", "Arena", "Ataque", "Direcao", "Verdadeiro", "Falso",
             // Ataques
             "EsferaAzul", "EsferaVermelha", "Agua", "Gelo", "Fogo", "ExplosaoFogo", "ExplosaoGelo", "Alho",
             // Recursos
@@ -24,10 +24,6 @@ namespace Jogo.Core
             "Goblin", "Esqueleto", "SlimeDeFogo", "SlimeDeGelo", "Lobisomem", "Orc", "Fantasma", "Vampiro",
             // Arenas
             "Campos", "Floresta", "Labirinto",
-            // Alvos
-            "mais_perto", "aleatorio", "menos_vida",
-            // Ações / Comandos
-            "mover", "atacar"
         };
 
         public MeuVisitor(IAcoesDoJogo acoesDoJogo)
@@ -208,6 +204,7 @@ namespace Jogo.Core
                 // --- TYPE ALIASING ---
                 // Direciona os tipos customizados para a validação de string
                 case "string":
+                case "Direcao":
                 case "Inimigo":
                 case "Ataque":
                 case "Arena":
@@ -436,6 +433,7 @@ namespace Jogo.Core
                     if (args.Count != 0) { _jogo.NotificarErro("'escapar' não aceita argumentos."); return null!; }
                     Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
                     _jogo.Escapar();
+                    System.Threading.Thread.Sleep(DELAY_TRANSICAO_CENA);
                     return null!;
         
                 // ==========================================
@@ -472,6 +470,7 @@ namespace Jogo.Core
                     if (args.Count != 1) { _jogo.NotificarErro("'arena' exige o nome da arena (texto)."); return null!; }
                     Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
                     _jogo.EntrarArena(args[0].ToString()!);
+                    System.Threading.Thread.Sleep(DELAY_TRANSICAO_CENA);
                     return null!;
         
                 case "comprar":

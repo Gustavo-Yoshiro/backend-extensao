@@ -56,7 +56,7 @@ acessoLista: ID '[' expressao ']';
 // ==========================================
 
 // Tipos primitivos 
-TIPO: 'int' | 'float' | 'bool' | 'string'| 'Inimigo' | 'Arena' | 'Ataque' ;
+TIPO: 'int' | 'float' | 'bool' | 'string'| 'Inimigo' | 'Arena' | 'Ataque' | 'Direcao';
 
 // Palavras reservadas
 SE: 'se';
