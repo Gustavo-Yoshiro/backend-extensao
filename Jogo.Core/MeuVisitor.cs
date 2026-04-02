@@ -13,7 +13,7 @@ namespace Jogo.Core
         // Lista de palavras sagradas que o jogador não pode usar como nome de variável
         private HashSet<string> _palavrasReservadas = new HashSet<string> { 
             // Direções
-            "Cima", "Baixo", "Direita", "Esquerda",
+            "Cima", "Baixo", "Direita", "Esquerda", "Inimigo", "Arena", "Ataque", "Verdadeiro", "Falso",
             // Elementos
             "fogo", "agua", "gelo", "raio",
             // Ataques
@@ -28,7 +28,6 @@ namespace Jogo.Core
             "mais_perto", "aleatorio", "menos_vida",
             // Ações / Comandos
             "mover", "atacar"
-
         };
 
         public MeuVisitor(IAcoesDoJogo acoesDoJogo)
@@ -199,16 +198,23 @@ namespace Jogo.Core
                 case "int":
                     tipoValido = valor is int; // O 'is' do C# verifica se o objeto é daquele tipo
                     break;
-                case "string":
-                    tipoValido = valor is string;
-                    break;
                 case "float":
                     tipoValido = valor is float;
                     break;
                 case "bool":
                     tipoValido = valor is bool;
                     break;
+                    
+                // --- TYPE ALIASING ---
+                // Direciona os tipos customizados para a validação de string
+                case "string":
+                case "Inimigo":
+                case "Ataque":
+                case "Arena":
+                    tipoValido = valor is string;
+                    break;
             }
+            
             if (!tipoValido)
             {
                 throw new Exception($"Erro de Tipo: Tentou salvar um valor '{valor.GetType().Name}' na variável '{nomeVar}' que é do tipo '{tipoEsperado}'.");
