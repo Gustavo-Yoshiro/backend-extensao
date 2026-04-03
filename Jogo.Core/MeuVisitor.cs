@@ -8,114 +8,91 @@ namespace Jogo.Core
     {
         private const int DELAY_TRANSICAO_CENA = 1000;
 
-        // Dicionário de variáveis (Memória do Jogo)
         private Dictionary<string, object> _memoria = new Dictionary<string, object>();
         private readonly IAcoesDoJogo _jogo;
 
-        // Lista de palavras sagradas que o jogador não pode usar como nome de variável
-        private HashSet<string> _palavrasReservadas = new HashSet<string> { 
-            // Direções
-            "Cima", "Baixo", "Direita", "Esquerda", "Inimigo", "Arena", "Ataque", "Direcao", "Verdadeiro", "Falso",
-            // Ataques
-            "EsferaAzul", "EsferaVermelha", "Agua", "Gelo", "Fogo", "ExplosaoFogo", "ExplosaoGelo", "Alho",
-            // Recursos
-            "Moeda", "Osso", "Couro", "Magma", "Cristal", "Plasma", "Sangue", "Safira", "Esmeralda", "Diamante",
-            // Inimigos
-            "Goblin", "Esqueleto", "SlimeDeFogo", "SlimeDeGelo", "Lobisomem", "Orc", "Fantasma", "Vampiro",
-            // Arenas
-            "Campos", "Floresta", "Labirinto",
+        // ==========================================
+        // CATEGORIAS DE "ENUMS" E FUNÇÕES
+        // ==========================================
+        private HashSet<string> _direcoes = new HashSet<string> { "Cima", "Baixo", "Direita", "Esquerda" };
+        private HashSet<string> _ataques = new HashSet<string> { "EsferaAzul", "EsferaVermelha", "Agua", "Gelo", "Fogo", "ExplosaoFogo", "ExplosaoGelo", "Alho" };
+        private HashSet<string> _recursos = new HashSet<string> { "Moeda", "Osso", "Couro", "Magma", "Cristal", "Plasma", "Sangue", "Safira", "Esmeralda", "Diamante" };
+        private HashSet<string> _inimigos = new HashSet<string> { "Goblin", "Esqueleto", "SlimeDeFogo", "SlimeDeGelo", "Lobisomem", "Orc", "Fantasma", "Vampiro" };
+        private HashSet<string> _arenas = new HashSet<string> { "Campos", "Floresta", "Labirinto" };
+        
+        // NOVO: Lista de todas as funções e objetos nativos do jogo
+        private HashSet<string> _funcoesEObjetosNativos = new HashSet<string> { 
+            "mover", "podeMover", "atacar", "nomeInimigo", "tempo", "vidaAtual", 
+            "inimigoMaisProximo", "escanearArea", "posicaoX", "posicaoY", 
+            "tesouroX", "tesouroY", "escapar", "arena", "comprar", 
+            "cinto", "mochila" // Importante para impedir que digitem: int cinto = 5
         };
+        
+        private HashSet<string> _palavrasReservadas;
 
         public MeuVisitor(IAcoesDoJogo acoesDoJogo)
         {
             _jogo = acoesDoJogo;
 
-            // VARIÁVEIS FIXAS DO SISTEMA
+            _palavrasReservadas = new HashSet<string> { "Verdadeiro", "Falso", "Inimigo", "Arena", "Ataque", "Direcao" };
+            _palavrasReservadas.UnionWith(_direcoes);
+            _palavrasReservadas.UnionWith(_ataques);
+            _palavrasReservadas.UnionWith(_recursos);
+            _palavrasReservadas.UnionWith(_inimigos);
+            _palavrasReservadas.UnionWith(_arenas);
+            
+            // Adiciona as funções à lista gigante de palavras proibidas
+            _palavrasReservadas.UnionWith(_funcoesEObjetosNativos);
+
             foreach (var constante in _palavrasReservadas)
             {
                 _memoria[constante] = constante;
             }
-            
         }
 
         public override object VisitExpressao([NotNull] LinguagemParser.ExpressaoContext context)
         {
-            // CASCATA DE VERIFICAÇÃO
-            if (context.chamadaFuncao() != null) 
-            {
-                return Visit(context.chamadaFuncao());
-            }
-            // 1. int
+            if (context.chamadaFuncao() != null) return Visit(context.chamadaFuncao());
             if (context.NUMERO_INT() != null) return int.Parse(context.NUMERO_INT().GetText());
-
-            // 2. float
             if (context.NUMERO_FLOAT() != null) return float.Parse(context.NUMERO_FLOAT().GetText(), System.Globalization.CultureInfo.InvariantCulture);
-
-            // 3. string
             if (context.STRING_LIT() != null) return context.STRING_LIT().GetText().Trim('"');
-
-            // 4. boolean
             if (context.BOOLEANO() != null) return context.BOOLEANO().GetText() == "Verdadeiro";
 
-            // **PARTE DE OPERAÇÕES**
-            // Se a regra tiver 3 filhos e o primeiro for '(', é uma expressão isolada
             if (context.ChildCount == 3 && context.GetChild(0).GetText() == "(")
-            {
-                // Ignora os parênteses e resolve 
                 return Visit(context.expressao(0)); 
-            }
 
-            // 5. Busca na memória
             if (context.ID() != null)
             {
                 string nomeVar = context.ID().GetText();
                 if (_memoria.ContainsKey(nomeVar)) return _memoria[nomeVar];
-                throw new Exception($"Erro: A variável '{nomeVar}' não existe!");
+                
+                throw new Exception($"L:{context.Start.Line}|A variável '{nomeVar}' não existe.");
             }
             
-            // **OPERAÇÕES**
-
-            // 1. PARÊNTESES isolados '( expressao )'
-            if (context.ChildCount == 3 && context.GetChild(0).GetText() == "(")
-            {
-                return Visit(context.expressao(0));
-            }
-
-            // 2. OPERAÇÕES BINÁRIAS
             if (context.expressao().Length == 2)
             {
-                // Resolvemos o lado esquerdo e o lado direito primeiro
                 object esquerdo = Visit(context.expressao(0));
                 object direito = Visit(context.expressao(1));
 
-                // --- LÓGICA ('e', 'ou') ---
                 if (context.E() != null || context.OU() != null)
                 {
-                    // Garantir que valEsq e valDir sempre terão valor se entrarem no IF, pra evitar erro
                     if (esquerdo is bool boolEsq && direito is bool boolDir)
                     {
                         if (context.E() != null) return boolEsq && boolDir;
                         if (context.OU() != null) return boolEsq || boolDir;
                     }
-                    throw new Exception("Erro de Tipo: Operadores 'e'/'ou' só funcionam com expressões lógicas.");
+                    throw new Exception($"L:{context.Start.Line}|Operadores 'e'/'ou' só funcionam com valores lógicos (Verdadeiro/Falso).");
                 }
 
-                // --- IGUALDADE ('==') ---
-                if (context.IGUAL() != null)
-                {
-                    return esquerdo.Equals(direito); 
-                }
+                if (context.IGUAL() != null) return esquerdo.Equals(direito); 
 
-                // --- MATEMÁTICA E COMPARAÇÃO ---
                 bool esqEhNumero = esquerdo is int || esquerdo is float;
                 bool dirEhNumero = direito is int || direito is float;
 
                 if (esqEhNumero && dirEhNumero)
                 {
-                    // Se QUALQUER UM dos lados for float, a conta toda vira float
                     if (esquerdo is float || direito is float)
                     {
-                        // Convert.ToSingle transforma int em float
                         float fEsq = Convert.ToSingle(esquerdo);
                         float fDir = Convert.ToSingle(direito);
 
@@ -129,11 +106,9 @@ namespace Jogo.Core
                         if (context.MENOR_IGUAL() != null) return fEsq <= fDir;
                         if (context.MAIOR() != null) return fEsq > fDir;
                         if (context.MENOR() != null) return fEsq < fDir;
-
                     }
                     else
                     {
-                        // Se ambos são int, a conta é int
                         int iEsq = (int)esquerdo;
                         int iDir = (int)direito;
 
@@ -150,13 +125,10 @@ namespace Jogo.Core
                     }
                 }
 
-                // --- CONCATENAÇÃO DE TEXTO ---
                 if (context.SOMA() != null && (esquerdo is string || direito is string))
-                {
                     return esquerdo.ToString() + direito.ToString();
-                }
 
-                throw new Exception($"Erro de Operação: Não sei como operar '{esquerdo.GetType().Name}' com '{direito.GetType().Name}'.");
+                throw new Exception($"L:{context.Start.Line}|Não é possível calcular '{esquerdo.GetType().Name}' com '{direito.GetType().Name}'.");
             }
 
             return null!;
@@ -167,87 +139,57 @@ namespace Jogo.Core
             string tipoDeclarado = context.TIPO().GetText();
             string nomeDaVariavel = context.ID().GetText();
 
-            // -- ESCUDO DE PALAVRAS RESERVADAS --
+            // Essa é a linha que vai barrar o jogador se ele tentar: int mover = 10
             if (_palavrasReservadas.Contains(nomeDaVariavel)) {
-                throw new Exception($"Erro: '{nomeDaVariavel}' é uma palavra reservada do sistema e não pode ser usada como variável.");
+                throw new Exception($"L:{context.Start.Line}|'{nomeDaVariavel}' é uma função ou palavra reservada do jogo e não pode ser usada como nome de variável.");
             }
 
             object valorResolvido = Visit(context.expressao());
-
-            // VERIFICAÇÃO DE TIPO
-            VerificarTipo(tipoDeclarado, valorResolvido, nomeDaVariavel);
-
-            // Salva na memória 
+            VerificarTipo(tipoDeclarado, valorResolvido, nomeDaVariavel, context.Start.Line);
             _memoria[nomeDaVariavel] = valorResolvido;
 
-            Console.WriteLine($"[Declaração] Criou a variável '{tipoDeclarado} {nomeDaVariavel}' com valor '{valorResolvido}'");
             return null!;
         }
-        // Método auxiliar
-        private void VerificarTipo(string tipoEsperado, object valor, string nomeVar)
+
+        private void VerificarTipo(string tipoEsperado, object valor, string nomeVar, int linha)
         {
             bool tipoValido = false;
-
-            // Checar se o tipo real do objeto bate com o tipo que o jogador escreveu
             switch (tipoEsperado)
             {
-                case "int":
-                    tipoValido = valor is int; // O 'is' do C# verifica se o objeto é daquele tipo
-                    break;
-                case "float":
-                    tipoValido = valor is float;
-                    break;
-                case "bool":
-                    tipoValido = valor is bool;
-                    break;
-                    
-                // --- TYPE ALIASING ---
-                // Direciona os tipos customizados para a validação de string
+                case "int": tipoValido = valor is int; break;
+                case "float": tipoValido = valor is float; break;
+                case "bool": tipoValido = valor is bool; break;
                 case "string":
                 case "Direcao":
                 case "Inimigo":
                 case "Ataque":
                 case "Arena":
-                    tipoValido = valor is string;
-                    break;
+                    tipoValido = valor is string; break;
             }
             
-            if (!tipoValido)
-            {
-                throw new Exception($"Erro de Tipo: Tentou salvar um valor '{valor.GetType().Name}' na variável '{nomeVar}' que é do tipo '{tipoEsperado}'.");
-            }
+            if (!tipoValido) throw new Exception($"L:{linha}|O valor passado não corresponde ao tipo '{tipoEsperado}'.");
         }
 
         public override object VisitAtribuicao([NotNull] LinguagemParser.AtribuicaoContext context)
         {
             string nomeDaVariavel = context.ID().GetText();
 
-            // -- ESCUDO DE CONSTANTES --
+            // Barra o jogador se ele tentar reatribuir: mover = 10
             if (_palavrasReservadas.Contains(nomeDaVariavel)) {
-                throw new Exception($"Erro: '{nomeDaVariavel}' é uma constante do sistema e não pode ser alterada.");
+                throw new Exception($"L:{context.Start.Line}|A palavra '{nomeDaVariavel}' é reservada pelo sistema e não pode ser alterada.");
             }
-
-            if (!_memoria.ContainsKey(nomeDaVariavel))
-            {
-                throw new Exception($"Erro: A variável '{nomeDaVariavel}' não foi declarada!");
+            if (!_memoria.ContainsKey(nomeDaVariavel)) {
+                throw new Exception($"L:{context.Start.Line}|A variável '{nomeDaVariavel}' não foi criada. Declare seu tipo antes (ex: int {nomeDaVariavel} = 0).");
             }
 
             object novoValor = Visit(context.expressao());
-
-            // Verificação de Segurança (Tipos)
             object valorAntigo = _memoria[nomeDaVariavel];
 
-            // Valor novo diferente do tipo do valor antigo = erro
-            if (valorAntigo.GetType() != novoValor.GetType())
-            {
-                throw new Exception($"Erro de Tipo: A variável '{nomeDaVariavel}' guarda valores do tipo '{valorAntigo.GetType().Name}', mas tentou atribuir um '{novoValor.GetType().Name}'.");
+            if (valorAntigo.GetType() != novoValor.GetType()) {
+                throw new Exception($"L:{context.Start.Line}|Erro de Tipo: A variável foi criada como '{valorAntigo.GetType().Name}', não pode receber '{novoValor.GetType().Name}'.");
             }
 
-            // Atualiza o valor
             _memoria[nomeDaVariavel] = novoValor;
-
-            Console.WriteLine($"[Atribuição] A variável '{nomeDaVariavel}' foi atualizada para o valor '{novoValor}'");
-
             return null!;
         }
 
@@ -258,230 +200,138 @@ namespace Jogo.Core
             {
                 if (condicao)
                 {
-                    Console.WriteLine("[Controle de Fluxo] O 'se' é Verdadeiro! Entrando no bloco...");
-
-                    foreach (var cmd in context.comando())
-                    {
-                        Visit(cmd);
-                    }
-                }// Verifica se existe else e executa o código se necessário.
+                    foreach (var cmd in context.comando()) Visit(cmd);
+                }
                 else if (context.estruturaSenao() != null) 
                 {
-                    Console.WriteLine("[Controle de Fluxo] O 'se' é Falso. Entrando no bloco 'senao'...");
-
-                    foreach (var cmd in context.estruturaSenao().comando())
-                    {
-                        Visit(cmd);
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("[Controle de Fluxo] O 'se' é falso e não foi identificado um 'senao', skipando código");
+                    foreach (var cmd in context.estruturaSenao().comando()) Visit(cmd);
                 }
             }
-            else
-            {
-                throw new Exception($"Erro de Tipo: A condição do 'se' precisa ser Verdadeiro ou Falso, mas você passou um '{resultadoCondicao.GetType().Name}'.");
-            }
+            else throw new Exception($"L:{context.Start.Line}|A condição do 'se' precisa resultar em Verdadeiro ou Falso.");
 
             return null!;
-
         }
         
         public override object VisitEstruturaEnquanto([NotNull] LinguagemParser.EstruturaEnquantoContext context)
         {
-            int contador = 0;
-
             object resultadoCondicao = Visit(context.expressao());
 
             if (resultadoCondicao is bool condicao)
             {
                 while (condicao)
                 {
-                    contador++;
-                    foreach (var cmd in context.comando())
-                    {
-                        Visit(cmd);
-                    }
+                    foreach (var cmd in context.comando()) Visit(cmd);
 
                     resultadoCondicao = Visit(context.expressao());
-
-                    if (resultadoCondicao is bool novaCondicao)
-                    {
-                        condicao = novaCondicao;
-                    }
-                    else
-                    {
-                        throw new Exception("Erro: A condição do 'enquanto' deixou de ser Verdadeiro ou Falso no meio da execução.");
-                    }
+                    if (resultadoCondicao is bool novaCondicao) condicao = novaCondicao;
+                    else throw new Exception($"L:{context.Start.Line}|A condição do 'enquanto' deixou de ser lógica no meio do loop.");
                 }
-
-                Console.WriteLine($"[Controle de Fluxo] O 'enquanto' terminou após {contador} repetições.");
             }
-            else
-            {
-                throw new Exception($"Erro de Tipo: A condição do 'enquanto' precisa ser Verdadeiro ou Falso.");
-            }
+            else throw new Exception($"L:{context.Start.Line}|A condição do 'enquanto' precisa ser Verdadeiro ou Falso.");
 
             return null!;
         }
         
         public override object VisitChamadaFuncao([NotNull] LinguagemParser.ChamadaFuncaoContext context)
         {
-            // Verifica se existe um objeto
             string? prefixo = context.objeto != null ? context.objeto.Text : null;
             string nomeFuncao = context.funcao.Text;
-        
-            // Junta o prefixo e a função para leitura no switch
             string nomeCompleto = prefixo != null ? $"{prefixo}.{nomeFuncao}" : nomeFuncao;
         
-            // Avalia e guarda todos os argumentos
             List<object> args = new List<object>();
             if (context.expressao() != null)
             {
-                foreach (var exp in context.expressao())
-                {
-                    args.Add(Visit(exp));
-                }
+                foreach (var exp in context.expressao()) args.Add(Visit(exp));
             }
         
-            string argsLog = string.Join(", ", args);
-        
-            // ROTEADOR DE FUNÇÕES DO JOGO
             switch (nomeCompleto)
             {
-                // ==========================================
-                // AÇÕES BÁSICAS E COMBATE
-                // ==========================================
                 case "mover":
-                    if (args.Count != 1) { _jogo.NotificarErro("'mover' exige exatamente 1 argumento."); return null!; }
+                    if (args.Count != 1) throw new Exception($"L:{context.Start.Line}|'mover()' precisa de 1 Direção.");
                     string dirMover = args[0].ToString()!;
-        
-                    var direcoesMover = new List<string> { "Cima", "Baixo", "Direita", "Esquerda", "norte", "sul", "leste", "oeste" };
-                    if (!direcoesMover.Contains(dirMover)) 
-                    { 
-                        _jogo.NotificarErro($"A direção '{dirMover}' é inválida para a grade."); 
-                        return null!; 
-                    }
-        
-                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
+                    if (!_direcoes.Contains(dirMover)) throw new Exception($"L:{context.Start.Line}|Direção '{dirMover}' inválida. Use Cima, Baixo, Esquerda ou Direita.");
                     _jogo.Mover(dirMover);
                     return null!;
         
                 case "podeMover":
-                    if (args.Count != 1) { _jogo.NotificarErro("'podeMover' exige exatamente 1 direção."); return false; }
+                    if (args.Count != 1) throw new Exception($"L:{context.Start.Line}|'podeMover()' precisa de 1 Direção.");
                     string dirPode = args[0].ToString()!;
-                    
-                    var direcoesPode = new List<string> { "Cima", "Baixo", "Direita", "Esquerda", "norte", "sul", "leste", "oeste" };
-                    if (!direcoesPode.Contains(dirPode)) { _jogo.NotificarErro($"A direção '{dirPode}' é inválida."); return false; }
-                    
-                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
+                    if (!_direcoes.Contains(dirPode)) throw new Exception($"L:{context.Start.Line}|Direção '{dirPode}' inválida.");
                     return _jogo.PodeMover(dirPode);
         
                 case "atacar":
-                    if (args.Count != 2) { _jogo.NotificarErro("'atacar' exige 2 parâmetros: alvo (texto) e tipo de ataque (texto)."); return null!; }
-                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
-                    _jogo.Atacar(args[0].ToString()!, args[1].ToString()!);
+                    if (args.Count != 2) throw new Exception($"L:{context.Start.Line}|'atacar()' precisa do Alvo e do Tipo de Ataque.");
+                    string ataqueDigitado = args[1].ToString()!;
+                    if (!_ataques.Contains(ataqueDigitado)) throw new Exception($"L:{context.Start.Line}|O ataque '{ataqueDigitado}' é inválido ou você não possui.");
+                    _jogo.Atacar(args[0].ToString()!, ataqueDigitado);
                     return null!;
         
                 case "nomeInimigo":
-                    if (args.Count != 1) { _jogo.NotificarErro("'nomeInimigo' exige 1 alvo."); return ""; }
-                    
-                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
+                    if (args.Count != 1) throw new Exception($"L:{context.Start.Line}|'nomeInimigo()' precisa de um alvo.");
                     return _jogo.GetNomeInimigo(args[0].ToString()!);
         
-                // ==========================================
-                // STATUS E MAPA
-                // ==========================================
                 case "tempo":
-                    if (args.Count != 0) { _jogo.NotificarErro("'tempo' não aceita argumentos."); return null!; }
-                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
+                    if (args.Count != 0) throw new Exception($"L:{context.Start.Line}|'tempo()' não recebe parâmetros.");
                     return _jogo.GetTempo();
         
                 case "vidaAtual":
-                    if (args.Count != 0) { _jogo.NotificarErro("'vidaAtual' não aceita argumentos."); return null!; }
-                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
+                    if (args.Count != 0) throw new Exception($"L:{context.Start.Line}|'vidaAtual()' não recebe parâmetros.");
                     return _jogo.GetVidaAtual();
         
                 case "inimigoMaisProximo":
-                    if (args.Count != 0) { _jogo.NotificarErro("'inimigoMaisProximo' não aceita argumentos."); return null!; }
-                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
+                    if (args.Count != 0) throw new Exception($"L:{context.Start.Line}|'inimigoMaisProximo()' não recebe parâmetros.");
                     return _jogo.InimigoMaisProximo();
         
                 case "escanearArea":
-                    if (args.Count != 0) { _jogo.NotificarErro("'escanearArea' não aceita argumentos."); return null!; }
-                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
+                    if (args.Count != 0) throw new Exception($"L:{context.Start.Line}|'escanearArea()' não recebe parâmetros.");
                     return _jogo.EscanearArea();
         
-                case "posicaoX":
-                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' chamada.");
-                    return _jogo.GetPosicaoPlayerX();
-
-                case "posicaoY":
-                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' chamada.");
-                    return _jogo.GetPosicaoPlayerY();
-
-                case "tesouroX":
-                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' chamada.");
-                    return _jogo.GetPosicaoTesouroX();
-
-                case "tesouroY":
-                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' chamada.");
-                    return _jogo.GetPosicaoTesouroY();
+                case "posicaoX": return _jogo.GetPosicaoPlayerX();
+                case "posicaoY": return _jogo.GetPosicaoPlayerY();
+                case "tesouroX": return _jogo.GetPosicaoTesouroX();
+                case "tesouroY": return _jogo.GetPosicaoTesouroY();
         
                 case "escapar":
-                    if (args.Count != 0) { _jogo.NotificarErro("'escapar' não aceita argumentos."); return null!; }
-                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
+                    if (args.Count != 0) throw new Exception($"L:{context.Start.Line}|'escapar()' não recebe parâmetros.");
                     _jogo.Escapar();
                     System.Threading.Thread.Sleep(DELAY_TRANSICAO_CENA);
                     return null!;
         
-                // ==========================================
-                // INVENTÁRIO (Cinto e Mochila)
-                // ==========================================
-                case "cinto.usarItem": // <-- ESTA FUNÇÃO HAVIA SUMIDO!
-                    if (args.Count != 1 || !(args[0] is int)) { _jogo.NotificarErro("'cinto.usarItem' exige 1 índice numérico inteiro."); return null!; }
-                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
+                case "cinto.usarItem": 
+                    if (args.Count != 1 || !(args[0] is int)) throw new Exception($"L:{context.Start.Line}|'cinto.usarItem()' exige 1 índice numérico inteiro.");
                     _jogo.UsarItemCinto((int)args[0]);
                     return null!;
         
                 case "mochila.usarItem":
-                    if (args.Count != 0) { _jogo.NotificarErro("'mochila.usarItem' não aceita argumentos."); return null!; }
-                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
+                    if (args.Count != 0) throw new Exception($"L:{context.Start.Line}|'mochila.usarItem()' não recebe parâmetros.");
                     _jogo.UsarItemMochila();
                     return null!;
         
                 case "cinto.colocarItem":
-                    if (args.Count != 2 || !(args[1] is int)) { _jogo.NotificarErro("'cinto.colocarItem' exige 1 item (texto) e 1 índice (número inteiro)."); return null!; }
-                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
+                    if (args.Count != 2 || !(args[1] is int)) throw new Exception($"L:{context.Start.Line}|'cinto.colocarItem()' exige o Item e o Índice numérico.");
                     _jogo.ColocarItemCinto(args[0].ToString()!, (int)args[1]);
                     return null!;
         
                 case "mochila.colocarItem":
-                    if (args.Count != 1) { _jogo.NotificarErro("'mochila.colocarItem' exige 1 item (texto)."); return null!; }
-                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
+                    if (args.Count != 1) throw new Exception($"L:{context.Start.Line}|'mochila.colocarItem()' exige 1 Item.");
                     _jogo.ColocarItemMochila(args[0].ToString()!);
                     return null!;
         
-                // ==========================================
-                // VILAREJO EXCLUSIVO
-                // ==========================================
                 case "arena":
-                    if (args.Count != 1) { _jogo.NotificarErro("'arena' exige o nome da arena (texto)."); return null!; }
-                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
-                    _jogo.EntrarArena(args[0].ToString()!);
+                    if (args.Count != 1) throw new Exception($"L:{context.Start.Line}|'arena()' precisa do nome da arena.");
+                    string arenaDigitada = args[0].ToString()!;
+                    if (!_arenas.Contains(arenaDigitada)) throw new Exception($"L:{context.Start.Line}|A arena '{arenaDigitada}' não existe.");
+                    _jogo.EntrarArena(arenaDigitada);
                     System.Threading.Thread.Sleep(DELAY_TRANSICAO_CENA);
                     return null!;
         
                 case "comprar":
-                    if (args.Count != 1) { _jogo.NotificarErro("'comprar' exige o nome do produto (texto)."); return null!; }
-                    Console.WriteLine($"[Chamada de Função] Função '{nomeCompleto}' foi chamada com argumentos: [{argsLog}]");
+                    if (args.Count != 1) throw new Exception($"L:{context.Start.Line}|'comprar()' precisa do nome do produto.");
                     _jogo.Comprar(args[0].ToString()!);
                     return null!;
         
                 default:
-                    _jogo.NotificarErro($"O comando '{nomeCompleto}' não é reconhecido.");
-                    return null!;
+                    throw new Exception($"L:{context.Start.Line}|A função '{nomeCompleto}' não foi reconhecida pelo jogo.");
             }
         }
     }
