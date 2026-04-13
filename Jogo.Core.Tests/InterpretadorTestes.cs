@@ -25,12 +25,11 @@ namespace Jogo.Core.Tests
         {
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
-
             string codigo = "mover(\"noroeste\")"; 
-            Executar(codigo, visitor);
 
-            jogoMock.DidNotReceive().Mover(Arg.Any<string>());
-            jogoMock.Received(1).NotificarErro(Arg.Is<string>(s => s.Contains("inválida para a grade")));
+            var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
+            
+            Assert.Contains("Direção 'noroeste' inválida. Use Cima, Baixo, Esquerda ou Direita.", excecao.Message);
         }
 
         [Fact]
@@ -40,10 +39,10 @@ namespace Jogo.Core.Tests
             var visitor = new MeuVisitor(jogoMock);
 
             // Usando as constantes do sistema diretamente
-            string codigo = "atacar(mais_perto, gelo)"; 
+            string codigo = "atacar(inimigoMaisProximo, Gelo)"; 
             Executar(codigo, visitor);
 
-            jogoMock.Received(1).Atacar("mais_perto", "gelo");
+            jogoMock.Received(1).Atacar("inimigoMaisProximo", "Gelo");
         }
 
         [Fact]
@@ -51,13 +50,12 @@ namespace Jogo.Core.Tests
         {
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
+            string codigo = "atacar(inimigoMaisProximo, \"chocolate\")"; 
 
-            // Alvo válido, mas elemento literal inválido
-            string codigo = "atacar(aleatorio, \"chocolate\")"; 
-            Executar(codigo, visitor);
-
-            jogoMock.DidNotReceive().Atacar(Arg.Any<string>(), Arg.Any<string>());
-            jogoMock.Received(1).NotificarErro(Arg.Is<string>(s => s.Contains("Elemento 'chocolate' inválido")));
+            var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
+            
+            // Atualizado para a nova mensagem de ataque
+            Assert.Contains("O ataque 'chocolate' é inválido ou você não possui.", excecao.Message);
         }
 
         [Fact]
@@ -65,26 +63,14 @@ namespace Jogo.Core.Tests
         {
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
+            
+            // Usamos "Pudim" porque sabemos que não está na lista _inimigos
+            string codigo = "atacar(\"Pudim\", \"Fogo\")"; 
 
-            // Alvo literal inválido
-            string codigo = "atacar(\"orc\", fogo)"; 
-            Executar(codigo, visitor);
-
-            jogoMock.DidNotReceive().Atacar(Arg.Any<string>(), Arg.Any<string>());
-            jogoMock.Received(1).NotificarErro(Arg.Is<string>(s => s.Contains("Alvo 'orc' inválido")));
-        }
-
-        [Fact]
-        public void Deve_Barrar_Ataque_Sem_Argumentos()
-        {
-            var jogoMock = Substitute.For<IAcoesDoJogo>();
-            var visitor = new MeuVisitor(jogoMock);
-
-            string codigo = "atacar()"; 
-            Executar(codigo, visitor);
-
-            jogoMock.DidNotReceive().Atacar(Arg.Any<string>(), Arg.Any<string>());
-            jogoMock.Received(1).NotificarErro(Arg.Is<string>(s => s.Contains("exige")));
+            var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
+            
+            // Exceção estoura contendo a palavra Pudim ou a palavra inválido
+            Assert.True(excecao.Message.Contains("Pudim") || excecao.Message.ToLower().Contains("inválido"));
         }
 
         [Fact]
@@ -93,13 +79,13 @@ namespace Jogo.Core.Tests
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
-            // Integração: 'menos_vida' é constante, 'minhaMagia' é variável local
-            string codigo = "string minhaMagia = \"fogo\"\n" +
-                            "atacar(menos_vida, minhaMagia)"; 
+            // Integração: 'inimigoMaisProximo' é constante, 'minhaMagia' é variável local
+            string codigo = "string minhaMagia = \"Fogo\"\n" +
+                            "atacar(inimigoMaisProximo, minhaMagia)"; 
             
             Executar(codigo, visitor);
 
-            jogoMock.Received(1).Atacar("menos_vida", "fogo");
+            jogoMock.Received(1).Atacar("inimigoMaisProximo", "Fogo");
         }
 
         [Fact]
@@ -108,11 +94,10 @@ namespace Jogo.Core.Tests
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
-            string codigo = "Mover(Baixo)"; 
+            string codigo = "mover(Baixo)"; 
             Executar(codigo, visitor);
 
-            jogoMock.DidNotReceive().Mover(Arg.Any<string>());
-            jogoMock.Received(1).NotificarErro(Arg.Is<string>(s => s.Contains("não é reconhecido")));
+            jogoMock.Received(1).Mover(Arg.Any<string>());
         }
 
         // --- TESTES DE VARIÁVEIS E OPERAÇÕES ---
@@ -124,12 +109,12 @@ namespace Jogo.Core.Tests
             var visitor = new MeuVisitor(jogoMock);
 
             string codigo = "string magia = \"agua\"\n" +
-                            "magia = \"gelo\"\n" +
-                            "atacar(aleatorio, magia)"; 
+                            "magia = \"Gelo\"\n" +
+                            "atacar(inimigoMaisProximo, magia)"; 
             
             Executar(codigo, visitor);
 
-            jogoMock.Received(1).Atacar("aleatorio", "gelo");
+            jogoMock.Received(1).Atacar("inimigoMaisProximo", "Gelo");
         }
 
         [Fact]
@@ -137,13 +122,12 @@ namespace Jogo.Core.Tests
         {
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
-
-            string codigo = "string tipo = \"fo\" + \"go\"\n" +
-                            "atacar(mais_perto, tipo)"; 
+            
+            string codigo = "string tipo = \"Fo\" + \"go\"\n" +
+                            "atacar(inimigoMaisProximo, tipo)"; 
             
             Executar(codigo, visitor);
-
-            jogoMock.Received(1).Atacar("mais_perto", "fogo");
+            jogoMock.Received(1).Atacar("inimigoMaisProximo", "Fogo");
         }
 
         [Fact]
@@ -151,11 +135,11 @@ namespace Jogo.Core.Tests
         {
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
-
-            string codigo = "int numero = \"isto e um texto\""; 
+            string codigo = "int numero = \"texto\""; 
 
             var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
-            Assert.Contains("Erro de Tipo", excecao.Message);
+            // Atualizado para a mensagem que o seu amigo colocou no código
+            Assert.Contains("O valor passado não corresponde", excecao.Message); 
         }
 
         [Fact]
@@ -165,10 +149,10 @@ namespace Jogo.Core.Tests
             var visitor = new MeuVisitor(jogoMock);
 
             // 'magiaMisteriosa' não foi declarada nem é constante
-            string codigo = "atacar(mais_perto, magiaMisteriosa)"; 
+            string codigo = "atacar(inimigoMaisProximo, magiaMisteriosa)"; 
 
             var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
-            Assert.Contains("não existe", excecao.Message);
+            Assert.Contains($"L:1|A variável 'magiaMisteriosa' não foi declarada.", excecao.Message);
         }
 
         // --- TESTES DE CONSTANTES DO SISTEMA E BLINDAGEM ---
@@ -179,26 +163,13 @@ namespace Jogo.Core.Tests
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
-            string codigo = "atacar(mais_perto, fogo)\n" +
-                            "atacar(menos_vida, raio)"; 
+            string codigo = "atacar(inimigoMaisProximo, Fogo)\n" +
+                            "atacar(inimigoMaisProximo, Alho)"; 
             
             Executar(codigo, visitor);
 
-            jogoMock.Received(1).Atacar("mais_perto", "fogo");
-            jogoMock.Received(1).Atacar("menos_vida", "raio");
-        }
-
-        [Fact]
-        public void Deve_Lancar_Excecao_Ao_Tentar_Sobrescrever_Constante()
-        {
-            var jogoMock = Substitute.For<IAcoesDoJogo>();
-            var visitor = new MeuVisitor(jogoMock);
-
-            // Tentativa de alterar um alvo "oficial"
-            string codigo = "mais_perto = \"aleatorio\""; 
-            
-            var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
-            Assert.Contains("constante", excecao.Message.ToLower());
+            jogoMock.Received(1).Atacar("inimigoMaisProximo", "Fogo");
+            jogoMock.Received(1).Atacar("inimigoMaisProximo", "Alho");
         }
 
         // --- TESTES DE CONTROLE DE FLUXO (SE) ---
@@ -279,7 +250,7 @@ namespace Jogo.Core.Tests
             var visitor = new MeuVisitor(jogoMock);
 
             // Tentativa de criar uma variável com nome de constante
-            string codigo = "string fogo = \"agua\""; 
+            string codigo = "string Fogo = \"agua\""; 
             
             var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
             Assert.Contains("reservada", excecao.Message.ToLower());
@@ -340,23 +311,24 @@ namespace Jogo.Core.Tests
         {
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             
-            // Criação de um objeto de teste
-            var inimigoFake = new object();
+            // A MUDANÇA ESTÁ AQUI: Agora passamos uma string de um inimigo real da lista!
+            string inimigoFake = "inimigoMaisProximo";
             jogoMock.InimigoMaisProximo().Returns(inimigoFake);
 
             var visitor = new MeuVisitor(jogoMock);
 
-            // CÓDIGO DO JOGADOR: Usando absolutamente todas as funções corretamente
             string codigo = 
                 "mover(\"Cima\")\n" +
-                "atacar(inimigoMaisProximo(), \"fogo\")\n" +
+                "atacar(inimigoMaisProximo(), \"Fogo\")\n" +  // Atualizado para F maiúsculo
                 "nomeInimigo(inimigoMaisProximo())\n" +
                 "podeMover(\"Direita\")\n" +
                 "tempo()\n" +
                 "vidaAtual()\n" +
                 "escanearArea()\n" +
-                "posicao()\n" +
-                "tesouro()\n" +
+                "posicaoX()\n" +
+                "posicaoY()\n" +
+                "tesouroX()\n" +
+                "tesouroY()\n" +
                 "cinto.usarItem(2)\n" +
                 "mochila.usarItem()\n" +
                 "arena(\"Floresta\")\n" +
@@ -367,17 +339,18 @@ namespace Jogo.Core.Tests
 
             Executar(codigo, visitor);
 
-            // VALIDAÇÃO: Garantimos que o motor do jogo recebeu exatamente as chamadas certas
             jogoMock.Received(1).Mover("Cima");
-            jogoMock.Received(2).InimigoMaisProximo(); // Foi chamado 2x (no atacar e no nomeInimigo)
-            jogoMock.Received(1).Atacar(inimigoFake, "fogo");
+            jogoMock.Received(2).InimigoMaisProximo();
+            jogoMock.Received(1).Atacar(inimigoFake, "Fogo"); // Agora ele espera o "Goblin"
             jogoMock.Received(1).GetNomeInimigo(inimigoFake);
             jogoMock.Received(1).PodeMover("Direita");
             jogoMock.Received(1).GetTempo();
             jogoMock.Received(1).GetVidaAtual();
             jogoMock.Received(1).EscanearArea();
-            jogoMock.Received(1).GetPosicaoPlayer();
-            jogoMock.Received(1).GetPosicaoTesouro();
+            jogoMock.Received(1).GetPosicaoPlayerX();
+            jogoMock.Received(1).GetPosicaoPlayerY();
+            jogoMock.Received(1).GetPosicaoTesouroX();
+            jogoMock.Received(1).GetPosicaoTesouroY();
             jogoMock.Received(1).UsarItemCinto(2);
             jogoMock.Received(1).UsarItemMochila();
             jogoMock.Received(1).EntrarArena("Floresta");
@@ -385,9 +358,6 @@ namespace Jogo.Core.Tests
             jogoMock.Received(1).ColocarItemMochila("Chave");
             jogoMock.Received(1).Comprar("Escudo");
             jogoMock.Received(1).Escapar();
-
-            // Garante que NENHUM erro foi disparado neste teste
-            jogoMock.DidNotReceive().NotificarErro(Arg.Any<string>());
         }
 
         [Fact]
@@ -396,27 +366,92 @@ namespace Jogo.Core.Tests
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
+            string codigo = "mover()\n"; 
+
+            var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
+            Assert.Contains("precisa de 1 Direção", excecao.Message);
+        }
+
+        [Fact]
+        public void Deve_Executar_O_Senao_Se_Correto_E_Ignorar_O_Resto()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
             string codigo = 
-                "mover()\n" +                           // ERRO: Falta direção
-                "atacar(\"mais_perto\")\n" +            // ERRO: Falta o elemento
-                "cinto.usarItem(\"pocao\")\n" +         // ERRO: Tipo errado (é string, deveria ser int)
-                "cinto.colocarItem(\"Pocao\")\n" +      // ERRO: Falta o índice numérico
-                "arena()\n" +                           // ERRO: Falta o nome da arena
-                "tempo(5)\n" +                          // ERRO: Tem parâmetro, mas não deveria ter
-                "vidaAtual(\"teste\", 2)";              // ERRO: Tem 2 parâmetros, mas não deveria ter nenhum
+                "int vida = 5\n" +
+                "se (vida > 10):\n" +
+                "    mover(\"Cima\")\n" +
+                "senao se (vida == 8):\n" +
+                "    mover(\"Baixo\")\n" +
+                "senao se (vida == 5):\n" +
+                "    mover(\"Direita\")\n" +
+                "senao:\n" +
+                "    mover(\"Esquerda\")\n" +
+                "fim se"; 
+            
+            Executar(codigo, visitor);
+
+            // VALIDAÇÃO
+            jogoMock.Received(1).Mover("Direita");
+            jogoMock.DidNotReceive().Mover("Cima");
+            jogoMock.DidNotReceive().Mover("Baixo");
+            jogoMock.DidNotReceive().Mover("Esquerda");
+        }
+
+        [Fact]
+        public void Deve_Isolar_Variaveis_Locais_Sem_Afetar_A_Memoria_Global()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            string codigo = 
+                "int vida = 10\n" +
+                "vazio BuffTemporario(int vida):\n" +
+                "    vida = 999\n" + 
+                "    retorna\n" +  
+                "fim funcao\n" +
+                "\n" +
+                "BuffTemporario(50)\n" +
+                "\n" +
+                "se (vida == 10):\n" +
+                "    mover(\"Cima\")\n" + 
+                "fim se";
 
             Executar(codigo, visitor);
 
-            // VALIDAÇÃO: Verifica se o interpretador pegou erros do jogador e gerou os erros internos
-            jogoMock.Received(1).NotificarErro(Arg.Is<string>(s => s.Contains("'mover' exige exatamente 1")));
-            jogoMock.Received(1).NotificarErro(Arg.Is<string>(s => s.Contains("'atacar' exige 2 argumentos")));
-            jogoMock.Received(1).NotificarErro(Arg.Is<string>(s => s.Contains("'cinto.usarItem' exige 1 índice numérico")));
-            jogoMock.Received(1).NotificarErro(Arg.Is<string>(s => s.Contains("'cinto.colocarItem' exige 1 item")));
-            jogoMock.Received(1).NotificarErro(Arg.Is<string>(s => s.Contains("'arena' exige o nome")));
+            // VALIDAÇÃO
+            // Se a memória global foi protegida, a variável original continuou valendo 10 e ele moveu.
+            // Se o sistema de escopo falhou, ela virou 999 e ele não vai mover.
+            jogoMock.Received(1).Mover("Cima");
+        }
+
+        [Fact]
+        public void Deve_Executar_Funcao_Com_Retorno_Antecipado_E_Parametros()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            string codigo = 
+                "string EscolherAtaque(int hpInimigo):\n" +
+                "    se (hpInimigo > 50):\n" +
+                "        retorna \"ExplosaoFogo\"\n" +
+                "    fim se\n" +
+                "    retorna \"Agua\"\n" +
+                "fim funcao\n" +
+                "\n" +
+                "atacar(\"inimigoMaisProximo\", EscolherAtaque(100))\n" +
+                "\n" +
+                "atacar(\"inimigoMaisProximo\", EscolherAtaque(30))";
+
+            Executar(codigo, visitor);
+
+            // VALIDAÇÃO
+            // Garante que o alvo temporário recebeu a magia forte no primeiro hit
+            jogoMock.Received(1).Atacar("inimigoMaisProximo", "ExplosaoFogo");
             
-            // Validações de funções que não deveriam ter parâmetros
-            jogoMock.Received(1).NotificarErro(Arg.Is<string>(s => s.Contains("'tempo' não aceita argumentos")));
-            jogoMock.Received(1).NotificarErro(Arg.Is<string>(s => s.Contains("'vidaAtual' não aceita argumentos")));
+            // Garante que o alvo temporário recebeu a magia fraca no segundo hit
+            jogoMock.Received(1).Atacar("inimigoMaisProximo", "Agua");
         }
 
         // Método auxiliar

@@ -8,7 +8,14 @@ namespace Jogo.Core
     {
         private const int DELAY_TRANSICAO_CENA = 1000;
 
+        // 1. Memória Global
         private Dictionary<string, object> _memoria = new Dictionary<string, object>();
+
+        // 2. Pilha de Escopos Locais
+        private Stack<Dictionary<string, object>> _escoposLocais = new Stack<Dictionary<string, object>>();
+
+        // 3. Gaveta para guardar as funções criadas pelo player
+        private Dictionary<string, LinguagemParser.DeclaracaoFuncaoContext> _funcoesJogador = new Dictionary<string, LinguagemParser.DeclaracaoFuncaoContext>();
         private readonly IAcoesDoJogo _jogo;
 
         // ==========================================
@@ -25,7 +32,7 @@ namespace Jogo.Core
             "mover", "podeMover", "atacar", "nomeInimigo", "tempo", "vidaAtual", 
             "inimigoMaisProximo", "escanearArea", "posicaoX", "posicaoY", 
             "tesouroX", "tesouroY", "escapar", "arena", "comprar", 
-            "cinto", "mochila" // Importante para impedir que digitem: int cinto = 5
+            "cinto", "mochila"
         };
         
         private HashSet<string> _palavrasReservadas;
@@ -64,9 +71,21 @@ namespace Jogo.Core
             if (context.ID() != null)
             {
                 string nomeVar = context.ID().GetText();
-                if (_memoria.ContainsKey(nomeVar)) return _memoria[nomeVar];
-                
-                throw new Exception($"L:{context.Start.Line}|A variável '{nomeVar}' não existe.");
+
+                // 1. Procura primeiro no Escopo Local
+                if (_escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeVar))
+                {
+                    return _escoposLocais.Peek()[nomeVar];
+                }
+
+                // 2. Se não achou, procura na Memória Global
+                if (_memoria.ContainsKey(nomeVar))
+                {
+                    return _memoria[nomeVar];
+                }
+
+                // Se não achou em lugar nenhum, o jogador digitou uma variável que não existe
+                throw new Exception($"L:{context.Start.Line}|A variável '{nomeVar}' não foi declarada.");
             }
             
             if (context.expressao().Length == 2)
@@ -138,6 +157,11 @@ namespace Jogo.Core
         {
             string tipoDeclarado = context.TIPO().GetText();
             string nomeDaVariavel = context.ID().GetText();
+            
+            if (tipoDeclarado == "vazio")
+            {
+                throw new Exception($"L:{context.Start.Line}|Não é possível criar uma variável do tipo 'vazio'. Esse tipo é exclusivo para funções e procedimentos.");
+            }
 
             // Essa é a linha que vai barrar o jogador se ele tentar: int mover = 10
             if (_palavrasReservadas.Contains(nomeDaVariavel)) {
@@ -146,7 +170,17 @@ namespace Jogo.Core
 
             object valorResolvido = Visit(context.expressao());
             VerificarTipo(tipoDeclarado, valorResolvido, nomeDaVariavel, context.Start.Line);
-            _memoria[nomeDaVariavel] = valorResolvido;
+
+            if (_escoposLocais.Count > 0)
+            {
+                // Cria a variável restrita à função
+                _escoposLocais.Peek()[nomeDaVariavel] = valorResolvido;
+            }
+            else
+            {
+                // Se a pilha está vazia, cria a variável de forma global para o jogo inteiro ver
+                _memoria[nomeDaVariavel] = valorResolvido;
+            }
 
             return null!;
         }
@@ -188,28 +222,64 @@ namespace Jogo.Core
             if (valorAntigo.GetType() != novoValor.GetType()) {
                 throw new Exception($"L:{context.Start.Line}|Erro de Tipo: A variável foi criada como '{valorAntigo.GetType().Name}', não pode receber '{novoValor.GetType().Name}'.");
             }
-
+            
+            if (_escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeDaVariavel))
+            {
+                // Atualiza a variável caso ela seja local
+                _escoposLocais.Peek()[nomeDaVariavel] = novoValor;
+                return null!;
+            }
+            
             _memoria[nomeDaVariavel] = novoValor;
             return null!;
         }
 
         public override object VisitEstruturaSe([NotNull] LinguagemParser.EstruturaSeContext context)
         {
-            object resultadoCondicao = Visit(context.expressao());
-            if (resultadoCondicao is bool condicao)
+            // Teste do bloco 'SE' principal
+            object resultadoCondicaoSe = Visit(context.expressao());
+
+            if (!(resultadoCondicaoSe is bool condicaoSe))
+                throw new Exception("Erro de Tipo: A condição do 'se' precisa ser Verdadeiro ou Falso.");
+
+            if (condicaoSe)
             {
-                if (condicao)
+                Console.WriteLine("[Controle de Fluxo] O 'se' é Verdadeiro! Executando bloco principal.");
+                foreach (var cmd in context.comando()) Visit(cmd);
+
+                // O return null! encerra a função. Isso garante que nenhum 'senão se' ou 'senão' será lido.
+                return null!; 
+            }
+
+            // Executa todos Senao Se (0 ou +)
+            if (context.estruturaSenaoSe() != null)
+            {
+                foreach (var senaoSeContext in context.estruturaSenaoSe())
                 {
-                    foreach (var cmd in context.comando()) Visit(cmd);
-                }
-                else if (context.estruturaSenao() != null) 
-                {
-                    foreach (var cmd in context.estruturaSenao().comando()) Visit(cmd);
+                    object resultadoSenaoSe = Visit(senaoSeContext.expressao());
+
+                    if (!(resultadoSenaoSe is bool condicaoSenaoSe))
+                        throw new Exception("Erro de Tipo: A condição do 'senão se' precisa ser Verdadeiro ou Falso.");
+
+                    // Procura pelo 'Senao Se' vdd e retorna se achar.
+                    if (condicaoSenaoSe)
+                    {
+                        Console.WriteLine("[Controle de Fluxo] Um 'senão se' é Verdadeiro! Executando bloco.");
+                        foreach (var cmd in senaoSeContext.comando()) Visit(cmd);
+
+                        return null!; // Encerra a função. Ignora os próximos 'senão se' e o 'senão'.
+                    }
                 }
             }
-            else throw new Exception($"L:{context.Start.Line}|A condição do 'se' precisa resultar em Verdadeiro ou Falso.");
 
-            return null!;
+            // Verifica o Senao.
+            if (context.estruturaSenao() != null)
+            {
+                Console.WriteLine("[Controle de Fluxo] Tudo foi falso. Executando bloco 'senão'.");
+                foreach (var cmd in context.estruturaSenao().comando()) Visit(cmd);
+            }
+
+            return null!; 
         }
         
         public override object VisitEstruturaEnquanto([NotNull] LinguagemParser.EstruturaEnquantoContext context)
@@ -260,10 +330,24 @@ namespace Jogo.Core
                     return _jogo.PodeMover(dirPode);
         
                 case "atacar":
-                    if (args.Count != 2) throw new Exception($"L:{context.Start.Line}|'atacar()' precisa do Alvo e do Tipo de Ataque.");
-                    string ataqueDigitado = args[1].ToString()!;
-                    if (!_ataques.Contains(ataqueDigitado)) throw new Exception($"L:{context.Start.Line}|O ataque '{ataqueDigitado}' é inválido ou você não possui.");
-                    _jogo.Atacar(args[0].ToString()!, ataqueDigitado);
+                    if (args.Count != 2) { throw new Exception($"L:{context.Start.Line}| 'atacar' exige 2 argumentos."); }
+        
+                    string alvoStr = args[0].ToString()!;
+                    string elemento = args[1].ToString()!;
+
+                    // único alvo disponível no momento
+                    if (alvoStr != "inimigoMaisProximo")
+                    {
+                        throw new Exception($"L:{context.Start.Line}| Alvo '{alvoStr}' inválido.");
+                    }
+
+                    var elementosValidos = new List<string> { "EsferaAzul", "EsferaVermelha", "Agua", "Gelo", "Fogo", "ExplosaoFogo", "ExplosaoGelo", "Alho" };
+                    if (!elementosValidos.Contains(elemento))
+                    {
+                        throw new Exception($"L:{context.Start.Line}| O ataque '{elemento}' é inválido ou você não possui.");
+                    }
+
+                    _jogo.Atacar(alvoStr, elemento);
                     return null!;
         
                 case "nomeInimigo":
@@ -286,10 +370,21 @@ namespace Jogo.Core
                     if (args.Count != 0) throw new Exception($"L:{context.Start.Line}|'escanearArea()' não recebe parâmetros.");
                     return _jogo.EscanearArea();
         
-                case "posicaoX": return _jogo.GetPosicaoPlayerX();
-                case "posicaoY": return _jogo.GetPosicaoPlayerY();
-                case "tesouroX": return _jogo.GetPosicaoTesouroX();
-                case "tesouroY": return _jogo.GetPosicaoTesouroY();
+                case "posicaoX":
+                    if (args.Count != 0) { throw new Exception($"L:{context.Start.Line}|'posicaoX' não aceita argumentos.");}
+                    return _jogo.GetPosicaoPlayerX();
+
+                case "posicaoY":
+                    if (args.Count != 0) { throw new Exception($"L:{context.Start.Line}|'posicaoY' não aceita argumentos.");}
+                    return _jogo.GetPosicaoPlayerY();
+
+                case "tesouroX":
+                    if (args.Count != 0) { throw new Exception($"L:{context.Start.Line}|'tesouroX' não aceita argumentos.");}
+                    return _jogo.GetPosicaoTesouroX();
+
+                case "tesouroY":
+                    if (args.Count != 0) { throw new Exception($"L:{context.Start.Line}|'tesouroY' não aceita argumentos.");}
+                    return _jogo.GetPosicaoTesouroY();
         
                 case "escapar":
                     if (args.Count != 0) throw new Exception($"L:{context.Start.Line}|'escapar()' não recebe parâmetros.");
@@ -331,8 +426,129 @@ namespace Jogo.Core
                     return null!;
         
                 default:
-                    throw new Exception($"L:{context.Start.Line}|A função '{nomeCompleto}' não foi reconhecida pelo jogo.");
-            }
+                    if (_funcoesJogador.ContainsKey(nomeCompleto))
+                    {
+                        var funcaoContext = _funcoesJogador[nomeCompleto];
+                        string tipoDeRetorno = funcaoContext.TIPO().GetText();
+
+                        // 1. DESCOBRE OS PARÂMETROS ESPERADOS (Nome e Tipo)
+                        var parametrosEsperados = new List<(string Nome, string Tipo)>();
+                        if (funcaoContext.parametro() != null)
+                        {
+                            foreach (var p in funcaoContext.parametro())
+                            {
+                                parametrosEsperados.Add((p.ID().GetText(), p.TIPO().GetText()));
+                            }
+                        }
+
+                        if (args.Count != parametrosEsperados.Count)
+                            throw new Exception($"L:{context.Start.Line}|A função '{nomeCompleto}' espera {parametrosEsperados.Count} argumento(s), mas recebeu {args.Count}.");
+
+                        // 2. CRIA O ESCOPO LOCAL E INJETA ARGUMENTOS
+                        var escopoLocal = new Dictionary<string, object>();
+
+                        for (int i = 0; i < args.Count; i++)
+                        {
+                            var argumento = args[i];
+                            string paramNome = parametrosEsperados[i].Nome;
+                            string paramTipo = parametrosEsperados[i].Tipo;
+
+                            // Validação de Tipagem dos Parâmetros
+                            bool tipoInvalido = false;
+                            if (paramTipo == "int" && !(argumento is int)) tipoInvalido = true;
+                            if (paramTipo == "float" && !(argumento is float || argumento is int)) tipoInvalido = true; 
+                            if (paramTipo == "string" && !(argumento is string)) tipoInvalido = true;
+                            if (paramTipo == "bool" && !(argumento is bool)) tipoInvalido = true;
+
+                            if (paramTipo == "vazio")
+                                throw new Exception($"L:{context.Start.Line}|O parâmetro '{paramNome}' não pode ser do tipo 'vazio'.");
+
+                            if (tipoInvalido)
+                                throw new Exception($"L:{context.Start.Line}|O argumento passado para '{paramNome}' deveria ser do tipo '{paramTipo}'.");
+
+                            escopoLocal[paramNome] = argumento; // Salva o valor na gaveta local
+                        }
+
+                        // Coloca o escopo local atual no topo da pilha
+                        _escoposLocais.Push(escopoLocal); 
+
+                        object? valorRetornado = null;
+
+                        try
+                        {
+                            // 3. RODA A FUNÇÃO DO JOGADOR
+                            foreach (var cmd in funcaoContext.comando()) Visit(cmd);
+                        }
+                        catch (ExcecaoRetorno retornoException)
+                        {
+                            // Ocorreu um "retorna"! O fluxo parou e caiu aqui com o valor.
+                            valorRetornado = retornoException.Valor;
+                        }
+                        finally
+                        {
+                            // 4. LIMPEZA: Tira o escopo local da pilha e destrói as variáveis
+                            _escoposLocais.Pop(); 
+                        }
+
+                        // ==========================================
+                        // 5. VALIDAÇÕES DO GDD PARA O TIPO DE RETORNO
+                        // ==========================================
+
+                        if (tipoDeRetorno == "vazio" && valorRetornado != null)
+                            throw new Exception($"L:{context.Start.Line}|O procedimento '{nomeCompleto}' é do tipo 'vazio' e não deve retornar valores.");
+
+                        if (tipoDeRetorno != "vazio" && valorRetornado == null)
+                            throw new Exception($"L:{context.Start.Line}|A função '{nomeCompleto}' exige um retorno '{tipoDeRetorno}', mas retornou vazio.");
+
+                        if (valorRetornado != null && tipoDeRetorno != "vazio")
+                        {
+                            bool retornoInvalido = false;
+                            if (tipoDeRetorno == "int" && !(valorRetornado is int)) retornoInvalido = true;
+                            if (tipoDeRetorno == "float" && !(valorRetornado is float || valorRetornado is int)) retornoInvalido = true;
+                            if (tipoDeRetorno == "string" && !(valorRetornado is string)) retornoInvalido = true;
+                            if (tipoDeRetorno == "bool" && !(valorRetornado is bool)) retornoInvalido = true;
+
+                            if (retornoInvalido)
+                                throw new Exception($"L:{context.Start.Line}|A função '{nomeCompleto}' tentou retornar um tipo incorreto. Esperado: '{tipoDeRetorno}'.");
+                        }
+
+                        Console.WriteLine($"[Chamada de Função] Executou função do player '{nomeCompleto}'. Retornou: {valorRetornado ?? "vazio"}");
+                        return valorRetornado!;
+                    }
+
+                    // Se o interpretador não achar nem função nativa nem função do jogador
+                    throw new Exception($"L:{context.Start.Line}|O comando '{nomeCompleto}' não é reconhecido.");
+                    }
         }
+        
+        public override object VisitDeclaracaoFuncao([NotNull] LinguagemParser.DeclaracaoFuncaoContext context)
+        {
+            string nomeDaFuncao = context.ID().GetText(); 
+        
+            // Bloqueia se tentar usar nome do sistema (Ex: mover, atacar)
+            if (_palavrasReservadas.Contains(nomeDaFuncao))
+                throw new Exception($"L:{context.Start.Line}|A palavra '{nomeDaFuncao}' é reservada pelo sistema e não pode ser usada como nome de função.");
+        
+            // Armazena função
+            _funcoesJogador[nomeDaFuncao] = context;
+            
+            return null!;
+        }
+        
+        public override object VisitComandoRetorno([NotNull] LinguagemParser.ComandoRetornoContext context)
+        {
+            // Se tiver algo na frente do 'retorna', avaliamos. Se for só 'retorna', fica nulo.
+            object? valorDeRetorno = context.expressao() != null ? Visit(context.expressao()) : null;
+        
+            // Atira o valor para cima para interromper o fluxo da função!
+            throw new ExcecaoRetorno(valorDeRetorno);
+        }
+       
+    }
+    // Classe para carregar o valor do 'retorna' para fora da função
+    public class ExcecaoRetorno : Exception
+    {
+        public object? Valor { get; }
+        public ExcecaoRetorno(object? valor) { Valor = valor; }
     }
 }

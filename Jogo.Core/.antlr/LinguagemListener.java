@@ -57,6 +57,16 @@ public interface LinguagemListener extends ParseTreeListener {
 	 */
 	void exitEstruturaSe(LinguagemParser.EstruturaSeContext ctx);
 	/**
+	 * Enter a parse tree produced by {@link LinguagemParser#estruturaSenao}.
+	 * @param ctx the parse tree
+	 */
+	void enterEstruturaSenao(LinguagemParser.EstruturaSenaoContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link LinguagemParser#estruturaSenao}.
+	 * @param ctx the parse tree
+	 */
+	void exitEstruturaSenao(LinguagemParser.EstruturaSenaoContext ctx);
+	/**
 	 * Enter a parse tree produced by {@link LinguagemParser#estruturaEnquanto}.
 	 * @param ctx the parse tree
 	 */

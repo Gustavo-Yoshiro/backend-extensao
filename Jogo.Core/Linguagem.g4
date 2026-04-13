@@ -11,6 +11,8 @@ comando: declaracaoVariavel
        | atribuicao
        | estruturaSe
        | estruturaEnquanto
+       | declaracaoFuncao
+       | comandoRetorno
        | chamadaFuncao;
 
 // Declaração de variável 
@@ -19,14 +21,25 @@ declaracaoVariavel: TIPO ID '=' expressao;
 // Atribuição de valor 
 atribuicao: ID '=' expressao;
 
-// Controle de fluxo: se(condição): ... senao: ... fim se
-estruturaSe: SE '(' expressao ')' ':' comando+ estruturaSenao? 'fim' 'se';
-
-// O bloco senão
-estruturaSenao: 'senao' ':' comando+;
-
 // Controle de fluxo: enquanto(condição):
 estruturaEnquanto: ENQUANTO '(' expressao ')' ':' comando+ 'fim' 'enquanto';
+
+// O bloco 'senão'
+estruturaSenao: 'senao' ':' comando+;
+
+// O bloco 'senão se'
+estruturaSenaoSe: 'senao' 'se' '(' expressao ')' ':' comando+;
+
+// Controle de fluxo principal
+estruturaSe: SE '(' expressao ')' ':' comando+ estruturaSenaoSe* estruturaSenao? 'fim' 'se';
+
+parametro: TIPO ID;
+
+// Exemplo: int curar(int forca, string alvo): ... fim funcao
+declaracaoFuncao: TIPO ID '(' (parametro (',' parametro)*)? ')' ':' comando+ 'fim' 'funcao';
+
+// Regra de retorno
+comandoRetorno: 'retorna' expressao?;
 
 // Permite chamadas simples 'funcao()' ou membros 'objeto.funcao()'
 chamadaFuncao: (objeto=ID '.')? funcao=ID '(' (expressao (',' expressao)*)? ')';
@@ -55,8 +68,8 @@ acessoLista: ID '[' expressao ']';
 // LEXER (Vocabulário / Tokens - MAIÚSCULAS)
 // ==========================================
 
-// Tipos primitivos 
-TIPO: 'int' | 'float' | 'bool' | 'string'| 'Inimigo' | 'Arena' | 'Ataque' | 'Direcao';
+// Tipos 
+TIPO: 'vazio' | 'int' | 'float' | 'bool' | 'string'| 'Inimigo' | 'Arena' | 'Ataque' | 'Direcao';
 
 // Palavras reservadas
 SE: 'se';

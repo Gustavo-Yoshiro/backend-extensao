@@ -76,6 +76,18 @@ public class LinguagemBaseListener implements LinguagemListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterEstruturaSenao(LinguagemParser.EstruturaSenaoContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitEstruturaSenao(LinguagemParser.EstruturaSenaoContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterEstruturaEnquanto(LinguagemParser.EstruturaEnquantoContext ctx) { }
 	/**
 	 * {@inheritDoc}
