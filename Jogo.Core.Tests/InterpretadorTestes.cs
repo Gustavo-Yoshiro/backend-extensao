@@ -139,7 +139,7 @@ namespace Jogo.Core.Tests
 
             var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
             // Atualizado para a mensagem que o seu amigo colocou no código
-            Assert.Contains("O valor passado não corresponde", excecao.Message); 
+            Assert.Contains("não corresponde ao tipo", excecao.Message);
         }
 
         [Fact]
@@ -504,5 +504,75 @@ namespace Jogo.Core.Tests
             // 4. Prova: Garante que o motor do jogo NÃO recebeu NENHUM comando de mover
             jogoMock.DidNotReceive().Mover(Arg.Any<string>());
         }
+
+        // TESTES DE LISTAS E VETORES
+
+        [Fact]
+        public void Deve_Criar_E_Acessar_Item_Da_Lista_Pelo_Indice()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            // O vetor tem [10, 20, 30]. O índice 1 é o número 20.
+            string codigo = "int vetor = [10, 20, 30]\n" +
+                            "se (vetor[1] == 20):\n" +
+                            "    mover(Cima)\n" +
+                            "fim se"; 
+
+            Executar(codigo, visitor);
+
+            jogoMock.Received(1).Mover("Cima");
+        }
+
+        [Fact]
+        public void Deve_Fazer_Operacoes_Matematicas_Com_Itens_Do_Vetor()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            // Soma vetor[0] (que é 2) com vetor[1] (que é 3)
+            string codigo = "int vetor = [2, 3]\n" +
+                            "int soma = vetor[0] + vetor[1]\n" +
+                            "se (soma == 5):\n" +
+                            "    mover(Direita)\n" +
+                            "fim se"; 
+
+            Executar(codigo, visitor);
+
+            jogoMock.Received(1).Mover("Direita");
+        }
+
+        [Fact]
+        public void Deve_Lancar_Excecao_Se_Lista_Tiver_Item_Incorreto()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            // A variável exige 'int', mas o último item é um texto
+            string codigo = "int vetor = [1, 5, \"intruso\"]"; 
+
+            var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
+            
+            // Garante que o erro do seu método VerificarTipo estourou certinho
+            Assert.Contains("intruso", excecao.Message.ToLower());
+        }
+
+        [Fact]
+        public void Deve_Lancar_Excecao_Ao_Acessar_Indice_Fora_Do_Limite()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            // O vetor só vai até o índice 1. Tentar acessar o 5 tem que dar erro!
+            string codigo = "int vetor = [10, 20]\n" +
+                            "int x = vetor[5]"; 
+
+            var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
+            
+            Assert.Contains("fora dos limites", excecao.Message.ToLower());
+        }
+        
     }
+
+
 }

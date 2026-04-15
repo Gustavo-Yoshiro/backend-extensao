@@ -87,6 +87,7 @@ namespace Jogo.Core
                 // Se não achou em lugar nenhum, o jogador digitou uma variável que não existe
                 throw new Exception($"L:{context.Start.Line}|A variável '{nomeVar}' não foi declarada.");
             }
+
             // Se o antlr achar o !
             if (context.NAO() != null)
             {
@@ -102,6 +103,11 @@ namespace Jogo.Core
                 throw new Exception($"L:{context.Start.Line}|O operador '!' só pode ser usado com valores Verdadeiro ou Falso.");
             }
             
+            // Redireciona para as funções especializadas de lista
+            if (context.lista() != null) return Visit(context.lista());
+            if (context.acessoLista() != null) return Visit(context.acessoLista());
+
+
             if (context.expressao().Length == 2)
             {
                 object esquerdo = Visit(context.expressao(0));
@@ -201,11 +207,40 @@ namespace Jogo.Core
 
         private void VerificarTipo(string tipoEsperado, object valor, string nomeVar, int linha)
         {
+            // VERIFICAÇÃO ESPECIAL PARA LISTAS
+            if (valor is List<object> listaDeValores)
+            {
+                if (listaDeValores.Count == 0) return; // Se for lista vazia []
+
+                // Inspeciona item por item dentro da lista
+                foreach (var item in listaDeValores)
+                {
+                    bool itemValido = false;
+                    switch (tipoEsperado)
+                    {
+                        case "int": itemValido = item is int; break;
+                        // Uma lista de floats pode receber números inteiros também
+                        case "float": itemValido = item is float || item is int; break; 
+                        case "bool": itemValido = item is bool; break;
+                        case "string":
+                        case "Direcao":
+                        case "Inimigo":
+                        case "Ataque":
+                        case "Arena":
+                            itemValido = item is string; break;
+                    }
+                    if (!itemValido) 
+                        throw new Exception($"L:{linha}|A lista '{nomeVar}' espera itens do tipo '{tipoEsperado}', mas encontrou um intruso do tipo '{item.GetType().Name}'.");
+                }
+                
+                return; 
+            }
+            // VERIFICAÇÃO NORMAL (Código Original)
             bool tipoValido = false;
             switch (tipoEsperado)
             {
                 case "int": tipoValido = valor is int; break;
-                case "float": tipoValido = valor is float; break;
+                case "float": tipoValido = valor is float || valor is int; break;
                 case "bool": tipoValido = valor is bool; break;
                 case "string":
                 case "Direcao":
@@ -215,7 +250,7 @@ namespace Jogo.Core
                     tipoValido = valor is string; break;
             }
             
-            if (!tipoValido) throw new Exception($"L:{linha}|O valor passado não corresponde ao tipo '{tipoEsperado}'.");
+            if (!tipoValido) throw new Exception($"L:{linha}|O valor passado para '{nomeVar}' não corresponde ao tipo '{tipoEsperado}'.");
         }
 
         public override object VisitAtribuicao([NotNull] LinguagemParser.AtribuicaoContext context)
@@ -557,7 +592,50 @@ namespace Jogo.Core
             // Atira o valor para cima para interromper o fluxo da função!
             throw new ExcecaoRetorno(valorDeRetorno);
         }
-       
+       public override object VisitLista([NotNull] LinguagemParser.ListaContext context)
+        {
+            var lista = new List<object>(); 
+            
+            // Se a lista não for vazia, adiciona os itens
+            if (context.expressao() != null)
+            {
+                foreach (var exp in context.expressao())
+                {
+                    lista.Add(Visit(exp));
+                }
+            }
+            return lista; 
+        }
+
+        public override object VisitAcessoLista([NotNull] LinguagemParser.AcessoListaContext context)
+        {
+            string nomeVar = context.ID().GetText();
+
+            // 1. Procura a variável na memória local ou global
+            object? valorVar = null;
+            if (_escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeVar))
+                valorVar = _escoposLocais.Peek()[nomeVar];
+            else if (_memoria.ContainsKey(nomeVar))
+                valorVar = _memoria[nomeVar];
+            else
+                throw new Exception($"L:{context.Start.Line}|A lista '{nomeVar}' não foi declarada.");
+
+            // 2. Garante que ela é uma lista mesmo
+            if (valorVar is List<object> lista)
+            {
+                object indiceObj = Visit(context.expressao()); // Pega a expressão dentro do colchete
+                
+                if (indiceObj is int indice)
+                {
+                    if (indice < 0 || indice >= lista.Count)
+                        throw new Exception($"L:{context.Start.Line}|Índice {indice} fora dos limites. A lista '{nomeVar}' tem tamanho {lista.Count}.");
+                    
+                    return lista[indice]; 
+                }
+                throw new Exception($"L:{context.Start.Line}|O índice da lista deve ser um número inteiro.");
+            }
+            throw new Exception($"L:{context.Start.Line}|A variável '{nomeVar}' não é uma lista.");
+        }
     }
     // Classe para carregar o valor do 'retorna' para fora da função
     public class ExcecaoRetorno : Exception
