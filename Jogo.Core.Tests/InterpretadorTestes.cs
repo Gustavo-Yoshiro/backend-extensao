@@ -464,5 +464,45 @@ namespace Jogo.Core.Tests
             var arvore = parser.programa();
             visitor.Visit(arvore);
         }
+
+        [Fact]
+        public void Deve_Executar_Bloco_Se_Inverter_Falso_Para_Verdadeiro()
+        {
+            // 1. Prepara o Godot de mentira (Mock)
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            // 2. O Script do Jogador
+            // Como !Falso vira Verdadeiro, ele DEVE entrar no 'se' e tentar mover.
+            string codigo = "se(!Falso):\n" +
+                            "    mover(Cima)\n" +
+                            "fim se"; 
+
+            // 3. Roda o interpretador
+            Executar(codigo, visitor);
+
+            // 4. Prova: Verifica se o Godot recebeu a ordem exata 1 vez
+            jogoMock.Received(1).Mover("Cima");
+        }
+
+        [Fact]
+        public void Nao_Deve_Executar_Bloco_Se_Inverter_Verdadeiro_Para_Falso()
+        {
+            // 1. Prepara o Godot de mentira (Mock)
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            // 2. O Script do Jogador
+            // Como !Verdadeiro vira Falso, a porta tranca e ele NÃO deve entrar no 'se'.
+            string codigo = "se(!Verdadeiro):\n" +
+                            "    mover(Cima)\n" +
+                            "fim se"; 
+
+            // 3. Roda o interpretador
+            Executar(codigo, visitor);
+
+            // 4. Prova: Garante que o motor do jogo NÃO recebeu NENHUM comando de mover
+            jogoMock.DidNotReceive().Mover(Arg.Any<string>());
+        }
     }
 }

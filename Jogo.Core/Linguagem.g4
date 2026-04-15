@@ -57,7 +57,8 @@ expressao: expressao (MULT | DIV | MOD) expressao
          | chamadaFuncao
          | '(' expressao ')'
          | lista
-         | acessoLista;
+         | acessoLista
+         | NAO expressao;
 
 // Listas e acesso por índice (ex: vetor = [1, 2, 3] e vetor[0])
 lista: '[' (expressao (',' expressao)*)? ']';
@@ -91,6 +92,7 @@ MENOR: '<';
 MAIOR: '>';
 MAIOR_IGUAL: '>=';
 MENOR_IGUAL: '<=';
+NAO: '!';
 
 // Identificadores (Nomes de variáveis e funções)
 ID: [a-zA-Z_][a-zA-Z0-9_]*;

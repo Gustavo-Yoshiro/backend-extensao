@@ -87,6 +87,20 @@ namespace Jogo.Core
                 // Se não achou em lugar nenhum, o jogador digitou uma variável que não existe
                 throw new Exception($"L:{context.Start.Line}|A variável '{nomeVar}' não foi declarada.");
             }
+            // Se o antlr achar o !
+            if (context.NAO() != null)
+            {
+                // Resolve a expressao na direita
+                object valor = Visit(context.expressao(0)); 
+                
+                if (valor is bool condicaoBooleana)
+                {
+                    return !condicaoBooleana; 
+                }
+                
+                // Se o jogador tentou fazer algo absurdo tipo !5 ou !"texto"
+                throw new Exception($"L:{context.Start.Line}|O operador '!' só pode ser usado com valores Verdadeiro ou Falso.");
+            }
             
             if (context.expressao().Length == 2)
             {
