@@ -22,7 +22,7 @@ namespace Jogo.Core
         // CATEGORIAS DE "ENUMS" E FUNÇÕES
         // ==========================================
         private HashSet<string> _direcoes = new HashSet<string> { "Cima", "Baixo", "Direita", "Esquerda" };
-        private HashSet<string> _ataques = new HashSet<string> { "EsferaAzul", "EsferaVermelha", "Agua", "Gelo", "Fogo", "ExplosaoFogo", "ExplosaoGelo", "Alho" };
+        private HashSet<string> _ataques = new HashSet<string> { "EsferaAzul", "EsferaVermelha", "Raio", "Gelo", "Fogo", "ExplosaoFogo", "ExplosaoGelo", "Alho" };
         private HashSet<string> _recursos = new HashSet<string> { "Moeda", "Osso", "Couro", "Magma", "Cristal", "Plasma", "Sangue", "Safira", "Esmeralda", "Diamante" };
         private HashSet<string> _inimigos = new HashSet<string> { "Goblin", "Esqueleto", "SlimeDeFogo", "SlimeDeGelo", "Lobisomem", "Orc", "Fantasma", "Vampiro" };
         private HashSet<string> _arenas = new HashSet<string> { "Campos", "Floresta", "Labirinto" };
@@ -384,13 +384,7 @@ namespace Jogo.Core
                     string alvoStr = args[0].ToString()!;
                     string elemento = args[1].ToString()!;
 
-                    // único alvo disponível no momento
-                    if (alvoStr != "inimigoMaisProximo")
-                    {
-                        throw new Exception($"L:{context.Start.Line}| Alvo '{alvoStr}' inválido.");
-                    }
-
-                    var elementosValidos = new List<string> { "EsferaAzul", "EsferaVermelha", "Agua", "Gelo", "Fogo", "ExplosaoFogo", "ExplosaoGelo", "Alho" };
+                    var elementosValidos = new List<string> { "EsferaAzul", "EsferaVermelha", "Raio", "Gelo", "Fogo", "ExplosaoFogo", "ExplosaoGelo", "Alho" };
                     if (!elementosValidos.Contains(elemento))
                     {
                         throw new Exception($"L:{context.Start.Line}| O ataque '{elemento}' é inválido ou você não possui.");
