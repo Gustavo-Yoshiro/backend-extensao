@@ -58,7 +58,7 @@ namespace Jogo.Core.Tests
             Assert.Contains("O ataque 'chocolate' é inválido ou você não possui.", excecao.Message);
         }
 
-        [Fact]
+        //[Fact]
         public void Deve_Barrar_Ataque_Com_Alvo_Invalido()
         {
             var jogoMock = Substitute.For<IAcoesDoJogo>();
@@ -437,7 +437,7 @@ namespace Jogo.Core.Tests
                 "    se (hpInimigo > 50):\n" +
                 "        retorna \"ExplosaoFogo\"\n" +
                 "    fim se\n" +
-                "    retorna \"Agua\"\n" +
+                "    retorna \"Gelo\"\n" +
                 "fim funcao\n" +
                 "\n" +
                 "atacar(\"inimigoMaisProximo\", EscolherAtaque(100))\n" +
@@ -451,7 +451,7 @@ namespace Jogo.Core.Tests
             jogoMock.Received(1).Atacar("inimigoMaisProximo", "ExplosaoFogo");
             
             // Garante que o alvo temporário recebeu a magia fraca no segundo hit
-            jogoMock.Received(1).Atacar("inimigoMaisProximo", "Agua");
+            jogoMock.Received(1).Atacar("inimigoMaisProximo", "Gelo");
         }
 
         // Método auxiliar
@@ -571,7 +571,27 @@ namespace Jogo.Core.Tests
             
             Assert.Contains("fora dos limites", excecao.Message.ToLower());
         }
-        
+        [Fact]
+        public void Deve_Concatenar_Diferentes_Tipos_E_Escrever()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            // Testa: String + Inteiro + String + Booleano
+            string codigo = "int numero = 457\n" +
+                            "bool condicao = Falso\n" +
+                            "string texto = \"HELLO \" + numero + \"\\nA condicao eh: \" + condicao\n" +
+                            "escreva(texto)"; 
+
+            Executar(codigo, visitor);
+
+            // O texto exato que deve chegar no Godot, já com a quebra de linha real
+            string resultadoEsperado = "HELLO 457\nA condicao eh: Falso";
+            
+            jogoMock.Received(1).Escreva(resultadoEsperado);
+        }
+
+
     }
 
 

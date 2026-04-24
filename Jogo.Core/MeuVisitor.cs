@@ -165,7 +165,17 @@ namespace Jogo.Core
                 }
 
                 if (context.SOMA() != null && (esquerdo is string || direito is string))
-                    return esquerdo.ToString() + direito.ToString();
+                {
+                    // Cuidamos para que os booleanos fiquem em Português
+                    string strEsq = esquerdo is bool bEsq ? (bEsq ? "Verdadeiro" : "Falso") : esquerdo.ToString();
+                    string strDir = direito is bool bDir ? (bDir ? "Verdadeiro" : "Falso") : direito.ToString();
+
+                    // Se for float, garantimos que ele use ponto ao invés de vírgula (ex: 51.5)
+                    if (esquerdo is float fEsq) strEsq = fEsq.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    if (direito is float fDir) strDir = fDir.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+                    return strEsq + strDir;
+                }
 
                 throw new Exception($"L:{context.Start.Line}|Não é possível calcular '{esquerdo.GetType().Name}' com '{direito.GetType().Name}'.");
             }
@@ -468,6 +478,24 @@ namespace Jogo.Core
                     _jogo.Comprar(args[0].ToString()!);
                     return null!;
         
+                case "escreva":
+                { 
+                    if (args.Count != 1) 
+                        throw new Exception($"L:{context.Start.Line}|A função 'escreva()' precisa receber exatamente 1 parâmetro.");
+
+                    object valorParaEscrever = args[0];
+                    string textoFinal = valorParaEscrever != null ? valorParaEscrever.ToString() : "";
+
+                    if (valorParaEscrever is bool booleano)
+                    {
+                        textoFinal = booleano ? "Verdadeiro" : "Falso";
+                    }
+
+                    textoFinal = textoFinal.Replace("\\n", "\n");
+                    _jogo.Escreva(textoFinal);
+                    
+                    return null!; 
+                }
                 default:
                     if (_funcoesJogador.ContainsKey(nomeCompleto))
                     {
