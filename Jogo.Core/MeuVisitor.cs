@@ -64,6 +64,7 @@ namespace Jogo.Core
             if (context.NUMERO_FLOAT() != null) return float.Parse(context.NUMERO_FLOAT().GetText(), System.Globalization.CultureInfo.InvariantCulture);
             if (context.STRING_LIT() != null) return context.STRING_LIT().GetText().Trim('"');
             if (context.BOOLEANO() != null) return context.BOOLEANO().GetText() == "Verdadeiro";
+            if (context.acessoAtributo() != null) return Visit(context.acessoAtributo());
 
             if (context.ChildCount == 3 && context.GetChild(0).GetText() == "(")
                 return Visit(context.expressao(0)); 
@@ -657,6 +658,41 @@ namespace Jogo.Core
                 throw new Exception($"L:{context.Start.Line}|O índice da lista deve ser um número inteiro.");
             }
             throw new Exception($"L:{context.Start.Line}|A variável '{nomeVar}' não é uma lista.");
+        }
+
+        public override object VisitAcessoAtributo([NotNull] LinguagemParser.AcessoAtributoContext context)
+        {
+            string nomeVar = context.ID(0).GetText();   // Pega a palavra antes do ponto (ex: alvo)
+            string atributo = context.ID(1).GetText();  // Pega a palavra depois do ponto (ex: nome)
+
+            // 1. Acha a variável na memória
+            object valorVar = null;
+            if (_escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeVar))
+                valorVar = _escoposLocais.Peek()[nomeVar];
+            else if (_memoria.ContainsKey(nomeVar))
+                valorVar = _memoria[nomeVar];
+            else
+                throw new Exception($"L:{context.Start.Line}|A variável '{nomeVar}' não foi declarada.");
+
+            // 2. Regra de Negócio: Garante que é uma string.
+            // Como na sua linguagem Inimigos, Arenas e Ataques são salvos como string por baixo dos panos,
+            // se o jogador tentar fazer isso com int, float ou bool, já vai dar erro direto aqui!
+            if (valorVar is string idInimigo)
+            {
+                // 3. Pede a informação para o Godot!
+                switch (atributo)
+                {
+                    case "nome": return _jogo.ObterNomeInimigo(idInimigo);
+                    case "velocidade": return _jogo.ObterVelocidadeInimigo(idInimigo);
+                    case "posicaoX": return _jogo.ObterPosicaoXInimigo(idInimigo);
+                    case "posicaoY": return _jogo.ObterPosicaoYInimigo(idInimigo);
+                    default:
+                        throw new Exception($"L:{context.Start.Line}|O atributo '{atributo}' não existe em um Inimigo.");
+                }
+            }
+
+            // Se o valor não for string (for int, float, bool, ou uma lista), explode o erro exigido no requisito:
+            throw new Exception($"L:{context.Start.Line}|Não é possível acessar atributos de '{nomeVar}', pois ele não é um Inimigo.");
         }
     }
     // Classe para carregar o valor do 'retorna' para fora da função

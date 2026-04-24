@@ -590,6 +590,45 @@ namespace Jogo.Core.Tests
             
             jogoMock.Received(1).Escreva(resultadoEsperado);
         }
+        [Fact]
+        public void Deve_Acessar_Atributos_De_Um_Inimigo()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            
+            // Quando o código pedir os atributos do "Vampiro", o Mock vai responder isso:
+            jogoMock.ObterNomeInimigo("Vampiro").Returns("Vampiro");
+            jogoMock.ObterVelocidadeInimigo("Vampiro").Returns(15.5f);
+            
+            var visitor = new MeuVisitor(jogoMock);
+
+            // Testa o acesso ao nome e à velocidade
+            string codigo = "Inimigo alvo = \"Vampiro\"\n" +
+                            "string n = alvo.nome\n" +
+                            "float v = alvo.velocidade\n" +
+                            "se (n == \"Vampiro\" e v > 10.0):\n" +
+                            "    mover(Cima)\n" +
+                            "fim se"; 
+
+            Executar(codigo, visitor);
+
+            // O boneco tem que ter se movido porque 15.5 é maior que 10.0!
+            jogoMock.Received(1).Mover("Cima");
+        }
+
+        [Fact]
+        public void Deve_Lancar_Excecao_Ao_Acessar_Atributo_De_Tipo_Invalido()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            // Tenta acessar .nome de um número inteiro (Tem que dar erro!)
+            string codigo = "int numero = 42\n" +
+                            "string n = numero.nome"; 
+
+            var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
+            
+            Assert.Contains("não é um Inimigo", excecao.Message);
+        }
 
 
     }
