@@ -58,7 +58,6 @@ expressao: expressao (MULT | DIV | MOD) expressao
          | '(' expressao ')'
          | lista
          | acessoLista
-         | acessoAtributo
          | NAO expressao;
 
 // Listas e acesso por índice (ex: vetor = [1, 2, 3] e vetor[0])
@@ -105,5 +104,3 @@ STRING_LIT: '"' ~["]* '"';
 
 // Ignorar espaços, tabs e quebras de linha na hora de ler o código
 WS: [ \t\r\n]+ -> skip;
-
-acessoAtributo: ID '.' ID;
