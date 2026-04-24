@@ -39,10 +39,10 @@ namespace Jogo.Core.Tests
             var visitor = new MeuVisitor(jogoMock);
 
             // Usando as constantes do sistema diretamente
-            string codigo = "atacar(inimigoMaisProximo, Gelo)"; 
+            string codigo = "atacar(\"Orc\", Gelo)"; 
             Executar(codigo, visitor);
 
-            jogoMock.Received(1).Atacar("inimigoMaisProximo", "Gelo");
+            jogoMock.Received(1).Atacar("Orc", "Gelo");
         }
 
         [Fact]
@@ -50,7 +50,7 @@ namespace Jogo.Core.Tests
         {
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
-            string codigo = "atacar(inimigoMaisProximo, \"chocolate\")"; 
+            string codigo = "atacar(\"Orc\", \"chocolate\")"; 
 
             var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
             
@@ -70,7 +70,7 @@ namespace Jogo.Core.Tests
             var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
             
             // Exceção estoura contendo a palavra Pudim ou a palavra inválido
-            Assert.True(excecao.Message.Contains("Pudim") || excecao.Message.ToLower().Contains("inválido"));
+            Assert.True(excecao.Message.Contains("Pudim") || excecao.Message.ToLower().Contains("O inimigo 'Pudim' é inválido"));
         }
 
         [Fact]
@@ -79,13 +79,13 @@ namespace Jogo.Core.Tests
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
-            // Integração: 'inimigoMaisProximo' é constante, 'minhaMagia' é variável local
+            // Integração: 'Orc' é constante, 'minhaMagia' é variável local
             string codigo = "string minhaMagia = \"Fogo\"\n" +
-                            "atacar(inimigoMaisProximo, minhaMagia)"; 
+                            "atacar(\"Orc\", minhaMagia)"; 
             
             Executar(codigo, visitor);
 
-            jogoMock.Received(1).Atacar("inimigoMaisProximo", "Fogo");
+            jogoMock.Received(1).Atacar("Orc", "Fogo");
         }
 
         [Fact]
@@ -110,11 +110,11 @@ namespace Jogo.Core.Tests
 
             string codigo = "string magia = \"agua\"\n" +
                             "magia = \"Gelo\"\n" +
-                            "atacar(inimigoMaisProximo, magia)"; 
+                            "atacar(\"Orc\", magia)"; 
             
             Executar(codigo, visitor);
 
-            jogoMock.Received(1).Atacar("inimigoMaisProximo", "Gelo");
+            jogoMock.Received(1).Atacar("Orc", "Gelo");
         }
 
         [Fact]
@@ -124,10 +124,10 @@ namespace Jogo.Core.Tests
             var visitor = new MeuVisitor(jogoMock);
             
             string codigo = "string tipo = \"Fo\" + \"go\"\n" +
-                            "atacar(inimigoMaisProximo, tipo)"; 
+                            "atacar(\"Orc\", tipo)"; 
             
             Executar(codigo, visitor);
-            jogoMock.Received(1).Atacar("inimigoMaisProximo", "Fogo");
+            jogoMock.Received(1).Atacar("Orc", "Fogo");
         }
 
         [Fact]
@@ -149,7 +149,7 @@ namespace Jogo.Core.Tests
             var visitor = new MeuVisitor(jogoMock);
 
             // 'magiaMisteriosa' não foi declarada nem é constante
-            string codigo = "atacar(inimigoMaisProximo, magiaMisteriosa)"; 
+            string codigo = "atacar(\"Orc\", magiaMisteriosa)"; 
 
             var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
             Assert.Contains($"L:1|A variável 'magiaMisteriosa' não foi declarada.", excecao.Message);
@@ -163,13 +163,13 @@ namespace Jogo.Core.Tests
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
-            string codigo = "atacar(inimigoMaisProximo, Fogo)\n" +
-                            "atacar(inimigoMaisProximo, Alho)"; 
+            string codigo = "atacar(\"Orc\", Fogo)\n" +
+                            "atacar(\"Orc\", Alho)"; 
             
             Executar(codigo, visitor);
 
-            jogoMock.Received(1).Atacar("inimigoMaisProximo", "Fogo");
-            jogoMock.Received(1).Atacar("inimigoMaisProximo", "Alho");
+            jogoMock.Received(1).Atacar("Orc", "Fogo");
+            jogoMock.Received(1).Atacar("Orc", "Alho");
         }
 
         // --- TESTES DE CONTROLE DE FLUXO (SE) ---
@@ -310,17 +310,12 @@ namespace Jogo.Core.Tests
         public void Deve_Executar_Todas_As_Funcoes_BuiltIn_Corretamente()
         {
             var jogoMock = Substitute.For<IAcoesDoJogo>();
-            
-            // A MUDANÇA ESTÁ AQUI: Agora passamos uma string de um inimigo real da lista!
-            string inimigoFake = "inimigoMaisProximo";
-            jogoMock.InimigoMaisProximo().Returns(inimigoFake);
-
             var visitor = new MeuVisitor(jogoMock);
 
             string codigo = 
                 "mover(\"Cima\")\n" +
-                "atacar(inimigoMaisProximo(), \"Fogo\")\n" +  // Atualizado para F maiúsculo
-                "nomeInimigo(inimigoMaisProximo())\n" +
+                "atacar(\"Orc\", \"Fogo\")\n" +  // Atualizado para F maiúsculo
+                "nomeInimigo(Orc)\n" +
                 "podeMover(\"Direita\")\n" +
                 "tempo()\n" +
                 "vidaAtual()\n" +
@@ -340,9 +335,6 @@ namespace Jogo.Core.Tests
             Executar(codigo, visitor);
 
             jogoMock.Received(1).Mover("Cima");
-            jogoMock.Received(2).InimigoMaisProximo();
-            jogoMock.Received(1).Atacar(inimigoFake, "Fogo"); // Agora ele espera o "Goblin"
-            jogoMock.Received(1).GetNomeInimigo(inimigoFake);
             jogoMock.Received(1).PodeMover("Direita");
             jogoMock.Received(1).GetTempo();
             jogoMock.Received(1).GetVidaAtual();
@@ -437,21 +429,21 @@ namespace Jogo.Core.Tests
                 "    se (hpInimigo > 50):\n" +
                 "        retorna \"ExplosaoFogo\"\n" +
                 "    fim se\n" +
-                "    retorna \"Agua\"\n" +
+                "    retorna \"Gelo\"\n" +
                 "fim funcao\n" +
                 "\n" +
-                "atacar(\"inimigoMaisProximo\", EscolherAtaque(100))\n" +
+                "atacar(\"Orc\", EscolherAtaque(100))\n" +
                 "\n" +
-                "atacar(\"inimigoMaisProximo\", EscolherAtaque(30))";
+                "atacar(\"Orc\", EscolherAtaque(30))";
 
             Executar(codigo, visitor);
 
             // VALIDAÇÃO
             // Garante que o alvo temporário recebeu a magia forte no primeiro hit
-            jogoMock.Received(1).Atacar("inimigoMaisProximo", "ExplosaoFogo");
+            jogoMock.Received(1).Atacar("Orc", "ExplosaoFogo");
             
             // Garante que o alvo temporário recebeu a magia fraca no segundo hit
-            jogoMock.Received(1).Atacar("inimigoMaisProximo", "Agua");
+            jogoMock.Received(1).Atacar("Orc", "Gelo");
         }
 
         // Método auxiliar
@@ -570,6 +562,30 @@ namespace Jogo.Core.Tests
             var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
             
             Assert.Contains("fora dos limites", excecao.Message.ToLower());
+        }
+
+        [Fact]
+        public void Testa_Funcao_Com_Prefixo_Comentado()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            string codigo = "# COMPRANDO OS ITENS\n" +
+                            "comprar(PocaoDeVida)\n" +
+                            "comprar(PocaoDeVida)\n" +
+                            "# COLOCANDO NOS INVENTARIOS\n" +
+                            "cinto.colocarItem(PocaoDeVida, 0)\n" +
+                            "mochila.colocarItem(PocaoDeVida)\n" +
+                            "# UTILIZANDO ITENS\n" +
+                            "cinto.usarItem(0)\n" +
+                            "mochila.usarItem()\n";
+
+            Executar(codigo, visitor);
+            jogoMock.Received(2).Comprar("PocaoDeVida");
+            jogoMock.Received(1).ColocarItemCinto("PocaoDeVida", 0);
+            jogoMock.Received(1).ColocarItemMochila("PocaoDeVida");
+            jogoMock.Received(1).UsarItemCinto(0);
+            jogoMock.Received(1).UsarItemMochila();
         }
         
     }

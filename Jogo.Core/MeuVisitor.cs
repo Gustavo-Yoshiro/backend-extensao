@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Antlr4.Runtime.Misc;
+using Microsoft.VisualBasic;
 
 namespace Jogo.Core
 {
@@ -26,13 +27,15 @@ namespace Jogo.Core
         private HashSet<string> _recursos = new HashSet<string> { "Moeda", "Osso", "Couro", "Magma", "Cristal", "Plasma", "Sangue", "Safira", "Esmeralda", "Diamante" };
         private HashSet<string> _inimigos = new HashSet<string> { "Goblin", "Esqueleto", "SlimeDeFogo", "SlimeDeGelo", "Lobisomem", "Orc", "Fantasma", "Vampiro" };
         private HashSet<string> _arenas = new HashSet<string> { "Campos", "Floresta", "Labirinto" };
+        private HashSet<string> _itens = new HashSet<string> { "PocaoDeVida" };
+
         
         // NOVO: Lista de todas as funções e objetos nativos do jogo
         private HashSet<string> _funcoesEObjetosNativos = new HashSet<string> { 
             "mover", "podeMover", "atacar", "nomeInimigo", "tempo", "vidaAtual", 
             "inimigoMaisProximo", "escanearArea", "posicaoX", "posicaoY", 
             "tesouroX", "tesouroY", "escapar", "arena", "comprar", 
-            "cinto", "mochila"
+            "cinto", "mochila", "venderTudo"
         };
         
         private HashSet<string> _palavrasReservadas;
@@ -47,6 +50,7 @@ namespace Jogo.Core
             _palavrasReservadas.UnionWith(_recursos);
             _palavrasReservadas.UnionWith(_inimigos);
             _palavrasReservadas.UnionWith(_arenas);
+            _palavrasReservadas.UnionWith(_itens);
             
             // Adiciona as funções à lista gigante de palavras proibidas
             _palavrasReservadas.UnionWith(_funcoesEObjetosNativos);
@@ -365,6 +369,10 @@ namespace Jogo.Core
         
             switch (nomeCompleto)
             {
+            // ==========================================
+            // FUNÇÕES BUILT-IN
+            // ==========================================
+
                 case "mover":
                     if (args.Count != 1) throw new Exception($"L:{context.Start.Line}|'mover()' precisa de 1 Direção.");
                     string dirMover = args[0].ToString()!;
@@ -380,15 +388,12 @@ namespace Jogo.Core
         
                 case "atacar":
                     if (args.Count != 2) { throw new Exception($"L:{context.Start.Line}| 'atacar' exige 2 argumentos."); }
-        
+
                     string alvoStr = args[0].ToString()!;
                     string elemento = args[1].ToString()!;
 
-                    var elementosValidos = new List<string> { "EsferaAzul", "EsferaVermelha", "Raio", "Gelo", "Fogo", "ExplosaoFogo", "ExplosaoGelo", "Alho" };
-                    if (!elementosValidos.Contains(elemento))
-                    {
-                        throw new Exception($"L:{context.Start.Line}| O ataque '{elemento}' é inválido ou você não possui.");
-                    }
+                    var elementosValidos = _ataques;
+                    if (!elementosValidos.Contains(elemento)) throw new Exception($"L:{context.Start.Line}| O ataque '{elemento}' é inválido ou você não possui.");
 
                     _jogo.Atacar(alvoStr, elemento);
                     return null!;
@@ -408,6 +413,10 @@ namespace Jogo.Core
                 case "inimigoMaisProximo":
                     if (args.Count != 0) throw new Exception($"L:{context.Start.Line}|'inimigoMaisProximo()' não recebe parâmetros.");
                     return _jogo.InimigoMaisProximo();
+
+                // ==========================================
+                // SISTEMA RELACIONADOS A ARENA
+                // ==========================================
         
                 case "escanearArea":
                     if (args.Count != 0) throw new Exception($"L:{context.Start.Line}|'escanearArea()' não recebe parâmetros.");
@@ -435,14 +444,23 @@ namespace Jogo.Core
                     System.Threading.Thread.Sleep(DELAY_TRANSICAO_CENA);
                     return null!;
         
-                case "cinto.usarItem": 
-                    if (args.Count != 1 || !(args[0] is int)) throw new Exception($"L:{context.Start.Line}|'cinto.usarItem()' exige 1 índice numérico inteiro.");
-                    _jogo.UsarItemCinto((int)args[0]);
+                case "arena":
+                    if (args.Count != 1) throw new Exception($"L:{context.Start.Line}|'arena()' precisa do nome da arena.");
+                    string arenaDigitada = args[0].ToString()!;
+                    if (!_arenas.Contains(arenaDigitada)) throw new Exception($"L:{context.Start.Line}|A arena '{arenaDigitada}' não existe.");
+                    _jogo.EntrarArena(arenaDigitada);
+                    System.Threading.Thread.Sleep(DELAY_TRANSICAO_CENA);
                     return null!;
-        
-                case "mochila.usarItem":
-                    if (args.Count != 0) throw new Exception($"L:{context.Start.Line}|'mochila.usarItem()' não recebe parâmetros.");
-                    _jogo.UsarItemMochila();
+
+                // ==========================================
+                // SISTEMA DE INVENTÁRIO E LOJA
+                // ==========================================
+
+                case "cinto.usarItem":
+                    if (args.Count != 1 || !(args[0] is int)) throw new Exception($"L:{context.Start.Line}|'cinto.usarItem' exige 1 índice numérico inteiro.");
+                    
+                    Console.WriteLine($"[Chamada de Função] Função 'cinto.usarItem' acionada (Índice: {args[0]})");
+                    _jogo.UsarItemCinto((int)args[0]);
                     return null!;
         
                 case "cinto.colocarItem":
@@ -454,20 +472,30 @@ namespace Jogo.Core
                     if (args.Count != 1) throw new Exception($"L:{context.Start.Line}|'mochila.colocarItem()' exige 1 Item.");
                     _jogo.ColocarItemMochila(args[0].ToString()!);
                     return null!;
-        
-                case "arena":
-                    if (args.Count != 1) throw new Exception($"L:{context.Start.Line}|'arena()' precisa do nome da arena.");
-                    string arenaDigitada = args[0].ToString()!;
-                    if (!_arenas.Contains(arenaDigitada)) throw new Exception($"L:{context.Start.Line}|A arena '{arenaDigitada}' não existe.");
-                    _jogo.EntrarArena(arenaDigitada);
-                    System.Threading.Thread.Sleep(DELAY_TRANSICAO_CENA);
+
+                case "mochila.usarItem":
+                    if (args.Count != 0) throw new Exception($"L:{context.Start.Line}|'mochila.usarItem' não aceita argumentos.");
+                    
+                    Console.WriteLine($"[Chamada de Função] Função 'mochila.usarItem' acionada.");
+                    _jogo.UsarItemMochila();
                     return null!;
         
                 case "comprar":
                     if (args.Count != 1) throw new Exception($"L:{context.Start.Line}|'comprar()' precisa do nome do produto.");
-                    _jogo.Comprar(args[0].ToString()!);
+
+                    string produtoDigitado = args[0].ToString()!;
+                    // TODO Futuro: if (!_produtos.Contains(produtoDigitado)) throw new Exception(...);
+                    _jogo.Comprar(produtoDigitado);
                     return null!;
         
+                case "venderTudo":
+                    if (args.Count != 0) 
+                        throw new Exception($"L:{context.Start.Line}|'venderTudo' não aceita argumentos.");
+                    
+                    Console.WriteLine($"[Chamada de Função] Função 'venderTudo' acionada.");
+                    _jogo.VenderTudo();
+                    return null!;
+
                 default:
                     if (_funcoesJogador.ContainsKey(nomeCompleto))
                     {

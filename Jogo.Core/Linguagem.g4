@@ -104,3 +104,6 @@ STRING_LIT: '"' ~["]* '"';
 
 // Ignorar espaços, tabs e quebras de linha na hora de ler o código
 WS: [ \t\r\n]+ -> skip;
+
+// Sistema de comentário: # + *qualquer coisa* -> Ignorado (até o fim da linha)
+COMENTARIO: '#' ~[\r\n]* -> skip;

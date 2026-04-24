@@ -39,5 +39,6 @@ namespace Jogo.Core
         void EntrarArena(string arena);
         void ColocarItemMochila(string item);
         void ColocarItemCinto(string item, int idx);
+        void VenderTudo();
     }
 }
