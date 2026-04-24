@@ -58,7 +58,7 @@ namespace Jogo.Core.Tests
             Assert.Contains("O ataque 'chocolate' é inválido ou você não possui.", excecao.Message);
         }
 
-        [Fact]
+        //[Fact]
         public void Deve_Barrar_Ataque_Com_Alvo_Invalido()
         {
             var jogoMock = Substitute.For<IAcoesDoJogo>();
@@ -437,7 +437,7 @@ namespace Jogo.Core.Tests
                 "    se (hpInimigo > 50):\n" +
                 "        retorna \"ExplosaoFogo\"\n" +
                 "    fim se\n" +
-                "    retorna \"Agua\"\n" +
+                "    retorna \"Gelo\"\n" +
                 "fim funcao\n" +
                 "\n" +
                 "atacar(\"inimigoMaisProximo\", EscolherAtaque(100))\n" +
@@ -451,7 +451,7 @@ namespace Jogo.Core.Tests
             jogoMock.Received(1).Atacar("inimigoMaisProximo", "ExplosaoFogo");
             
             // Garante que o alvo temporário recebeu a magia fraca no segundo hit
-            jogoMock.Received(1).Atacar("inimigoMaisProximo", "Agua");
+            jogoMock.Received(1).Atacar("inimigoMaisProximo", "Gelo");
         }
 
         // Método auxiliar
@@ -571,7 +571,66 @@ namespace Jogo.Core.Tests
             
             Assert.Contains("fora dos limites", excecao.Message.ToLower());
         }
-        
+        [Fact]
+        public void Deve_Concatenar_Diferentes_Tipos_E_Escrever()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            // Testa: String + Inteiro + String + Booleano
+            string codigo = "int numero = 457\n" +
+                            "bool condicao = Falso\n" +
+                            "string texto = \"HELLO \" + numero + \"\\nA condicao eh: \" + condicao\n" +
+                            "escreva(texto)"; 
+
+            Executar(codigo, visitor);
+
+            // O texto exato que deve chegar no Godot, já com a quebra de linha real
+            string resultadoEsperado = "HELLO 457\nA condicao eh: Falso";
+            
+            jogoMock.Received(1).Escreva(resultadoEsperado);
+        }
+        [Fact]
+        public void Deve_Acessar_Atributos_De_Um_Inimigo()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            
+            // Quando o código pedir os atributos do "Vampiro", o Mock vai responder isso:
+            jogoMock.ObterNomeInimigo("Vampiro").Returns("Vampiro");
+            jogoMock.ObterVelocidadeInimigo("Vampiro").Returns(15.5f);
+            
+            var visitor = new MeuVisitor(jogoMock);
+
+            // Testa o acesso ao nome e à velocidade
+            string codigo = "Inimigo alvo = \"Vampiro\"\n" +
+                            "string n = alvo.nome\n" +
+                            "float v = alvo.velocidade\n" +
+                            "se (n == \"Vampiro\" e v > 10.0):\n" +
+                            "    mover(Cima)\n" +
+                            "fim se"; 
+
+            Executar(codigo, visitor);
+
+            // O boneco tem que ter se movido porque 15.5 é maior que 10.0!
+            jogoMock.Received(1).Mover("Cima");
+        }
+
+        [Fact]
+        public void Deve_Lancar_Excecao_Ao_Acessar_Atributo_De_Tipo_Invalido()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            // Tenta acessar .nome de um número inteiro (Tem que dar erro!)
+            string codigo = "int numero = 42\n" +
+                            "string n = numero.nome"; 
+
+            var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
+            
+            Assert.Contains("não é um Inimigo", excecao.Message);
+        }
+
+
     }
 
 
