@@ -107,3 +107,5 @@ STRING_LIT: '"' ~["]* '"';
 WS: [ \t\r\n]+ -> skip;
 
 acessoAtributo: ID '.' ID;
+// Sistema de comentário: # + *qualquer coisa* -> Ignorado (até o fim da linha)
+COMENTARIO: '#' ~[\r\n]* -> skip;
