@@ -32,7 +32,7 @@ namespace Jogo.Core
         
         // NOVO: Lista de todas as funções e objetos nativos do jogo
         private HashSet<string> _funcoesEObjetosNativos = new HashSet<string> { 
-            "mover", "podeMover", "atacar", "nomeInimigo", "tempo", "vidaAtual", 
+            "mover", "podeMover", "atacar", "tempo", "vidaAtual", 
             "inimigoMaisProximo", "escanearArea", "posicaoX", "posicaoY", 
             "tesouroX", "tesouroY", "escapar", "arena", "comprar", 
             "cinto", "mochila", "venderTudo", "max", "tamanho", "trunca"
