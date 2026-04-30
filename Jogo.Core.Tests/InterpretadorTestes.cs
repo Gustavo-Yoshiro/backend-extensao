@@ -315,7 +315,6 @@ namespace Jogo.Core.Tests
             string codigo = 
                 "mover(\"Cima\")\n" +
                 "atacar(\"Orc\", \"Fogo\")\n" +  // Atualizado para F maiúsculo
-                "nomeInimigo(Orc)\n" +
                 "podeMover(\"Direita\")\n" +
                 "tempo()\n" +
                 "vidaAtual()\n" +

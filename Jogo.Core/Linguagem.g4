@@ -47,7 +47,7 @@ chamadaFuncao: (objeto=ID '.')? funcao=ID '(' (expressao (',' expressao)*)? ')';
 // Expressões matemáticas, lógicas e estruturas de dados
 expressao: expressao (MULT | DIV | MOD) expressao
          | expressao (SOMA | SUB) expressao
-         | expressao ( MAIOR | MENOR | MAIOR_IGUAL | MENOR_IGUAL | IGUAL) expressao
+         | expressao ( MAIOR | MENOR | MAIOR_IGUAL | MENOR_IGUAL | IGUAL | DIFERENTE) expressao
          | expressao (E | OU) expressao
          | ID
          | NUMERO_INT
@@ -88,7 +88,10 @@ DIV: '/';
 MOD: '%';
 E: 'e';
 OU: 'ou';
+
+// Operadores Lógicos
 IGUAL: '==';
+DIFERENTE: '!=';
 MENOR: '<';
 MAIOR: '>';
 MAIOR_IGUAL: '>=';

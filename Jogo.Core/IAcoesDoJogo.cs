@@ -44,7 +44,6 @@ namespace Jogo.Core
 
         // OBS: Função legada, mantida para evitar conflitos temporários com o Godot.
         // O jogador não consegue mais usar nomeInimigo() na linguagem, ele usa alvo.nome.
-        string GetNomeInimigo(string alvo); 
         void VenderTudo();
     }
 }

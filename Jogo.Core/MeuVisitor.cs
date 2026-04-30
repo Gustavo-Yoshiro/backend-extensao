@@ -35,7 +35,7 @@ namespace Jogo.Core
             "mover", "podeMover", "atacar", "nomeInimigo", "tempo", "vidaAtual", 
             "inimigoMaisProximo", "escanearArea", "posicaoX", "posicaoY", 
             "tesouroX", "tesouroY", "escapar", "arena", "comprar", 
-            "cinto", "mochila", "venderTudo"
+            "cinto", "mochila", "venderTudo", "max", "tamanho", "trunca"
         };
         
         private HashSet<string> _palavrasReservadas;
@@ -93,6 +93,7 @@ namespace Jogo.Core
                 throw new Exception($"L:{context.Start.Line}|A variável '{nomeVar}' não foi declarada.");
             }
 
+
             // Se o antlr achar o !
             if (context.NAO() != null)
             {
@@ -129,6 +130,7 @@ namespace Jogo.Core
                 }
 
                 if (context.IGUAL() != null) return esquerdo.Equals(direito); 
+                if (context.DIFERENTE() != null) return !esquerdo.Equals(direito); 
 
                 bool esqEhNumero = esquerdo is int || esquerdo is float;
                 bool dirEhNumero = direito is int || direito is float;
@@ -409,10 +411,6 @@ namespace Jogo.Core
                     _jogo.Atacar(alvoStr, elemento);
                     return null!;
         
-                case "nomeInimigo":
-                    if (args.Count != 1) throw new Exception($"L:{context.Start.Line}|'nomeInimigo()' precisa de um alvo.");
-                    return _jogo.GetNomeInimigo(args[0].ToString()!);
-        
                 case "tempo":
                     if (args.Count != 0) throw new Exception($"L:{context.Start.Line}|'tempo()' não recebe parâmetros.");
                     return _jogo.GetTempo();
@@ -525,6 +523,40 @@ namespace Jogo.Core
                     Console.WriteLine($"[Chamada de Função] Função 'venderTudo' acionada.");
                     _jogo.VenderTudo();
                     return null!;
+
+                case "max":
+                    if (args.Count != 2) 
+                        throw new Exception($"L:{context.Start.Line}|A função 'max()' exige exatamente 2 argumentos numéricos.");
+                    
+                    if (!(args[0] is float || args[0] is int) || !(args[1] is float || args[1] is int))
+                        throw new Exception($"L:{context.Start.Line}|Os dois argumentos de 'max()' devem ser números.");
+        
+                    float v1 = Convert.ToSingle(args[0]);
+                    float v2 = Convert.ToSingle(args[1]);
+        
+                    return (v1 >= v2) ? args[0] : args[1];
+        
+                case "tamanho":
+                    if (args.Count != 1) 
+                        throw new Exception($"L:{context.Start.Line}|A função 'tamanho()' exige 1 argumento (uma lista/vetor).");
+                    
+                    if (!(args[0] is List<object>))
+                        throw new Exception($"L:{context.Start.Line}|O argumento de 'tamanho()' deve ser uma lista.");
+        
+                    var lista = (List<object>)args[0];
+                    
+                    return lista.Count;
+        
+                case "trunca":
+                    if (args.Count != 1) 
+                        throw new Exception($"L:{context.Start.Line}|A função 'trunca()' exige 1 argumento numérico.");
+                    
+                    if (!(args[0] is float || args[0] is int))
+                        throw new Exception($"L:{context.Start.Line}|O argumento de 'trunca()' deve ser um número (int ou float).");
+        
+                    // Extrai o valor do código convertendo pra float e retorna o valor truncado 
+                    float valorParaTruncar = Convert.ToSingle(args[0]);
+                    return (int)Math.Truncate(valorParaTruncar);
 
                 default:
                     if (_funcoesJogador.ContainsKey(nomeCompleto))
