@@ -15,6 +15,7 @@ namespace Jogo.Core
         // SISTEMA E FRONTEND
         void NotificarErro(string mensagem); 
         void Escreva(string texto);
+        void DestacarLinhaAtual(int linha, string categoria = "");
 
         // SENSORES E INFORMAÇÕES DO AMBIENTE
         string InimigoMaisProximo(); // Retorna o ID (string), não o objeto

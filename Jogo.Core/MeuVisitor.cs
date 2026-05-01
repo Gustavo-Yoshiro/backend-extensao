@@ -7,10 +7,13 @@ namespace Jogo.Core
 {
     public class MeuVisitor : LinguagemBaseVisitor<object>
     {
+        const int TEMPO_LINHA = 0;
         private const int DELAY_TRANSICAO_CENA = 1000;
 
         // 1. Memória Global
         private Dictionary<string, object> _memoria = new Dictionary<string, object>();
+        private Dictionary<string, int> _linhasDeclaracaoGlobal = new Dictionary<string, int>();
+        private Stack<Dictionary<string, int>> _linhasDeclaracaoLocal = new Stack<Dictionary<string, int>>();
 
         // 2. Pilha de Escopos Locais
         private Stack<Dictionary<string, object>> _escoposLocais = new Stack<Dictionary<string, object>>();
@@ -76,7 +79,9 @@ namespace Jogo.Core
             if (context.ID() != null)
             {
                 string nomeVar = context.ID().GetText();
-
+                _jogo.DestacarLinhaAtual(context.Start.Line, "leitura_var");
+                System.Threading.Thread.Sleep(TEMPO_LINHA);
+                DestacarDeclaracao(nomeVar, "origem_var");
                 // 1. Procura primeiro no Escopo Local
                 if (_escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeVar))
                 {
@@ -192,6 +197,8 @@ namespace Jogo.Core
 
         public override object VisitDeclaracaoVariavel([NotNull] LinguagemParser.DeclaracaoVariavelContext context)
         {
+            _jogo.DestacarLinhaAtual(context.Start.Line, "declaracao_var");
+            System.Threading.Thread.Sleep(TEMPO_LINHA);
             string tipoDeclarado = context.TIPO().GetText();
             string nomeDaVariavel = context.ID().GetText();
             
@@ -212,11 +219,13 @@ namespace Jogo.Core
             {
                 // Cria a variável restrita à função
                 _escoposLocais.Peek()[nomeDaVariavel] = valorResolvido;
+                _linhasDeclaracaoLocal.Peek()[nomeDaVariavel] = context.Start.Line;
             }
             else
             {
                 // Se a pilha está vazia, cria a variável de forma global para o jogo inteiro ver
                 _memoria[nomeDaVariavel] = valorResolvido;
+                _linhasDeclaracaoGlobal[nomeDaVariavel] = context.Start.Line;
             }
 
             return null!;
@@ -272,8 +281,11 @@ namespace Jogo.Core
 
         public override object VisitAtribuicao([NotNull] LinguagemParser.AtribuicaoContext context)
         {
+            _jogo.DestacarLinhaAtual(context.Start.Line, "atribuicao");
+            System.Threading.Thread.Sleep(TEMPO_LINHA);
             string nomeDaVariavel = context.ID().GetText();
 
+            DestacarDeclaracao(nomeDaVariavel, "origem_var");
             // Barra o jogador se ele tentar reatribuir: mover = 10
             if (_palavrasReservadas.Contains(nomeDaVariavel)) {
                 throw new Exception($"L:{context.Start.Line}|A palavra '{nomeDaVariavel}' é reservada pelo sistema e não pode ser alterada.");
@@ -302,6 +314,8 @@ namespace Jogo.Core
 
         public override object VisitEstruturaSe([NotNull] LinguagemParser.EstruturaSeContext context)
         {
+            _jogo.DestacarLinhaAtual(context.Start.Line, "se_senao");
+            System.Threading.Thread.Sleep(TEMPO_LINHA);
             // Teste do bloco 'SE' principal
             object resultadoCondicaoSe = Visit(context.expressao());
 
@@ -313,6 +327,8 @@ namespace Jogo.Core
                 Console.WriteLine("[Controle de Fluxo] O 'se' é Verdadeiro! Executando bloco principal.");
                 foreach (var cmd in context.comando()) Visit(cmd);
 
+                _jogo.DestacarLinhaAtual(context.Stop.Line, "fim_se");
+                System.Threading.Thread.Sleep(TEMPO_LINHA);
                 // O return null! encerra a função. Isso garante que nenhum 'senão se' ou 'senão' será lido.
                 return null!; 
             }
@@ -322,6 +338,8 @@ namespace Jogo.Core
             {
                 foreach (var senaoSeContext in context.estruturaSenaoSe())
                 {
+                    _jogo.DestacarLinhaAtual(senaoSeContext.Start.Line, "se_senao");
+                    System.Threading.Thread.Sleep(TEMPO_LINHA);
                     object resultadoSenaoSe = Visit(senaoSeContext.expressao());
 
                     if (!(resultadoSenaoSe is bool condicaoSenaoSe))
@@ -332,6 +350,8 @@ namespace Jogo.Core
                     {
                         Console.WriteLine("[Controle de Fluxo] Um 'senão se' é Verdadeiro! Executando bloco.");
                         foreach (var cmd in senaoSeContext.comando()) Visit(cmd);
+                        _jogo.DestacarLinhaAtual(context.Stop.Line, "fim_se");
+                        System.Threading.Thread.Sleep(TEMPO_LINHA);
 
                         return null!; // Encerra a função. Ignora os próximos 'senão se' e o 'senão'.
                     }
@@ -342,14 +362,20 @@ namespace Jogo.Core
             if (context.estruturaSenao() != null)
             {
                 Console.WriteLine("[Controle de Fluxo] Tudo foi falso. Executando bloco 'senão'.");
+                _jogo.DestacarLinhaAtual(context.estruturaSenao().Start.Line, "se_senao");
+                System.Threading.Thread.Sleep(TEMPO_LINHA);
                 foreach (var cmd in context.estruturaSenao().comando()) Visit(cmd);
             }
 
+            _jogo.DestacarLinhaAtual(context.Stop.Line, "fim_se");
+            System.Threading.Thread.Sleep(TEMPO_LINHA);
             return null!; 
         }
         
         public override object VisitEstruturaEnquanto([NotNull] LinguagemParser.EstruturaEnquantoContext context)
         {
+            _jogo.DestacarLinhaAtual(context.Start.Line, "enquanto");
+            System.Threading.Thread.Sleep(TEMPO_LINHA);
             object resultadoCondicao = Visit(context.expressao());
 
             if (resultadoCondicao is bool condicao)
@@ -357,11 +383,15 @@ namespace Jogo.Core
                 while (condicao)
                 {
                     foreach (var cmd in context.comando()) Visit(cmd);
-
+                    System.Threading.Thread.Sleep(1);
+                    _jogo.DestacarLinhaAtual(context.Start.Line, "enquanto");
+                    System.Threading.Thread.Sleep(TEMPO_LINHA);
                     resultadoCondicao = Visit(context.expressao());
                     if (resultadoCondicao is bool novaCondicao) condicao = novaCondicao;
                     else throw new Exception($"L:{context.Start.Line}|A condição do 'enquanto' deixou de ser lógica no meio do loop.");
                 }
+                _jogo.DestacarLinhaAtual(context.Stop.Line, "fim_enquanto");
+                System.Threading.Thread.Sleep(TEMPO_LINHA);
             }
             else throw new Exception($"L:{context.Start.Line}|A condição do 'enquanto' precisa ser Verdadeiro ou Falso.");
 
@@ -370,6 +400,8 @@ namespace Jogo.Core
         
         public override object VisitChamadaFuncao([NotNull] LinguagemParser.ChamadaFuncaoContext context)
         {
+            _jogo.DestacarLinhaAtual(context.Start.Line, "chamada_funcao");
+            System.Threading.Thread.Sleep(TEMPO_LINHA);
             string? prefixo = context.objeto != null ? context.objeto.Text : null;
             string nomeFuncao = context.funcao.Text;
             string nomeCompleto = prefixo != null ? $"{prefixo}.{nomeFuncao}" : nomeFuncao;
@@ -565,12 +597,12 @@ namespace Jogo.Core
                         string tipoDeRetorno = funcaoContext.TIPO().GetText();
 
                         // 1. DESCOBRE OS PARÂMETROS ESPERADOS (Nome e Tipo)
-                        var parametrosEsperados = new List<(string Nome, string Tipo)>();
+                        var parametrosEsperados = new List<(string Nome, string Tipo, int Linha)>();
                         if (funcaoContext.parametro() != null)
                         {
                             foreach (var p in funcaoContext.parametro())
                             {
-                                parametrosEsperados.Add((p.ID().GetText(), p.TIPO().GetText()));
+                                parametrosEsperados.Add((p.ID().GetText(), p.TIPO().GetText(), p.Start.Line));
                             }
                         }
 
@@ -579,7 +611,7 @@ namespace Jogo.Core
 
                         // 2. CRIA O ESCOPO LOCAL E INJETA ARGUMENTOS
                         var escopoLocal = new Dictionary<string, object>();
-
+                        var escopoLinhas = new Dictionary<string, int>();
                         for (int i = 0; i < args.Count; i++)
                         {
                             var argumento = args[i];
@@ -600,8 +632,9 @@ namespace Jogo.Core
                                 throw new Exception($"L:{context.Start.Line}|O argumento passado para '{paramNome}' deveria ser do tipo '{paramTipo}'.");
 
                             escopoLocal[paramNome] = argumento; // Salva o valor na gaveta local
+                            escopoLinhas[paramNome] = parametrosEsperados[i].Linha;
                         }
-
+                        _linhasDeclaracaoLocal.Push(escopoLinhas);
                         // Coloca o escopo local atual no topo da pilha
                         _escoposLocais.Push(escopoLocal); 
 
@@ -609,8 +642,12 @@ namespace Jogo.Core
 
                         try
                         {
+                            _jogo.DestacarLinhaAtual(funcaoContext.Start.Line, "corpo_funcao");
+                            System.Threading.Thread.Sleep(TEMPO_LINHA);
                             // 3. RODA A FUNÇÃO DO JOGADOR
                             foreach (var cmd in funcaoContext.comando()) Visit(cmd);
+                            _jogo.DestacarLinhaAtual(funcaoContext.Stop.Line, "fim_funcao");
+                            System.Threading.Thread.Sleep(TEMPO_LINHA);
                         }
                         catch (ExcecaoRetorno retornoException)
                         {
@@ -670,6 +707,8 @@ namespace Jogo.Core
         
         public override object VisitComandoRetorno([NotNull] LinguagemParser.ComandoRetornoContext context)
         {
+            _jogo.DestacarLinhaAtual(context.Start.Line, "retorna");
+            System.Threading.Thread.Sleep(TEMPO_LINHA);
             // Se tiver algo na frente do 'retorna', avaliamos. Se for só 'retorna', fica nulo.
             object? valorDeRetorno = context.expressao() != null ? Visit(context.expressao()) : null;
         
@@ -694,6 +733,9 @@ namespace Jogo.Core
         public override object VisitAcessoLista([NotNull] LinguagemParser.AcessoListaContext context)
         {
             string nomeVar = context.ID().GetText();
+            _jogo.DestacarLinhaAtual(context.Start.Line, "leitura_var");
+            System.Threading.Thread.Sleep(TEMPO_LINHA);
+            DestacarDeclaracao(nomeVar, "origem_var");
 
             // 1. Procura a variável na memória local ou global
             object? valorVar = null;
@@ -725,7 +767,9 @@ namespace Jogo.Core
         {
             string nomeVar = context.ID(0).GetText();   // Pega a palavra antes do ponto (ex: alvo)
             string atributo = context.ID(1).GetText();  // Pega a palavra depois do ponto (ex: nome)
-
+            _jogo.DestacarLinhaAtual(context.Start.Line, "leitura_var");
+            System.Threading.Thread.Sleep(TEMPO_LINHA);
+            DestacarDeclaracao(nomeVar, "origem_var");
             // 1. Acha a variável na memória
             object valorVar = null;
             if (_escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeVar))
@@ -754,6 +798,20 @@ namespace Jogo.Core
 
             // Se o valor não for string (for int, float, bool, ou uma lista), explode o erro exigido no requisito:
             throw new Exception($"L:{context.Start.Line}|Não é possível acessar atributos de '{nomeVar}', pois ele não é um Inimigo.");
+        }
+        private void DestacarDeclaracao(string nomeVar, string categoria)
+        {
+            if (_linhasDeclaracaoLocal.Count > 0 && _linhasDeclaracaoLocal.Peek().TryGetValue(nomeVar, out int linhaLocal))
+            {
+                _jogo.DestacarLinhaAtual(linhaLocal, categoria);
+                System.Threading.Thread.Sleep(TEMPO_LINHA);
+                return;
+            }
+            if (_linhasDeclaracaoGlobal.TryGetValue(nomeVar, out int linhaGlobal))
+            {
+                _jogo.DestacarLinhaAtual(linhaGlobal, categoria);
+                System.Threading.Thread.Sleep(TEMPO_LINHA);
+            }
         }
     }
     // Classe para carregar o valor do 'retorna' para fora da função
