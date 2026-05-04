@@ -622,6 +622,57 @@ namespace Jogo.Core.Tests
             Assert.Contains("não é um Inimigo", excecao.Message);
         }
 
+        [Fact]
+        public void Deve_Acessar_Atributo_Vida_E_Usar_Operador_Diferente()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            
+            // Configura o Mock para dizer que o SlimeDeFogo tem 50 de vida
+            jogoMock.ObterVidaInimigo("SlimeDeFogo").Returns(50);
+            jogoMock.ObterNomeInimigo("SlimeDeFogo").Returns("SlimeDeFogo");
+            
+            var visitor = new MeuVisitor(jogoMock);
+
+            // O código verifica se a vida é diferente de 100 e se o nome NÃO é Orc
+            string codigo = "Inimigo alvo = \"SlimeDeFogo\"\n" +
+                            "se (alvo.vida != 100 e alvo.nome != \"Orc\"):\n" +
+                            "    escreva(\"Condicoes funcionaram!\")\n" +
+                            "fim se"; 
+
+            Executar(codigo, visitor);
+
+            jogoMock.Received(1).Escreva("Condicoes funcionaram!");
+        }
+        [Fact]
+        public void Deve_Calcular_Min_E_Max_Corretamente()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            string codigo = "float menor = min(10.5, 20.0)\n" +
+                            "int maior = max(5, 2)\n" +
+                            "escreva(\"Menor: \" + menor + \" Maior: \" + maior)"; 
+
+            Executar(codigo, visitor);
+
+            jogoMock.Received(1).Escreva("Menor: 10.5 Maior: 5");
+        }
+        [Fact]
+        public void Deve_Gerar_Numero_Aleatorio_Entre_Zero_E_Um()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            // Gera o número e usa as condicionais para validar se está no limite correto
+            string codigo = "float num = aleatorio()\n" +
+                            "se (num >= 0.0 e num <= 1.0):\n" +
+                            "    escreva(\"Numero dentro do limite\")\n" +
+                            "fim se"; 
+
+            Executar(codigo, visitor);
+
+            jogoMock.Received(1).Escreva("Numero dentro do limite");
+        }
 
     }
 
