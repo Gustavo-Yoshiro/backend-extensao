@@ -38,7 +38,7 @@ namespace Jogo.Core
             "mover", "podeMover", "atacar", "tempo", "vidaAtual", 
             "inimigoMaisProximo", "escanearArea", "posicaoX", "posicaoY", 
             "tesouroX", "tesouroY", "escapar", "arena", "comprar", 
-            "cinto", "mochila", "venderTudo", "max", "tamanho", "trunca"
+            "cinto", "mochila", "venderTudo", "max", "min", "tamanho", "trunca", "aleatorio"
         };
         
         private HashSet<string> _palavrasReservadas;
@@ -590,6 +590,26 @@ namespace Jogo.Core
                     float valorParaTruncar = Convert.ToSingle(args[0]);
                     return (int)Math.Truncate(valorParaTruncar);
 
+                case "min":
+                    if (args.Count != 2) 
+                        throw new Exception($"L:{context.Start.Line}|A função 'min()' exige exatamente 2 argumentos numéricos.");
+                    
+                    if (!(args[0] is float || args[0] is int) || !(args[1] is float || args[1] is int))
+                        throw new Exception($"L:{context.Start.Line}|Os dois argumentos de 'min()' devem ser números.");
+
+                    float minV1 = Convert.ToSingle(args[0]);
+                    float minV2 = Convert.ToSingle(args[1]);
+
+                    return (minV1 <= minV2) ? args[0] : args[1];
+
+                case "aleatorio":
+                    if (args.Count != 0) 
+                        throw new Exception($"L:{context.Start.Line}|A função 'aleatorio()' não recebe argumentos.");
+                    
+                    // Gera um número entre 0.0 e 1.0 e arredonda para 2 casas decimais
+                    float valorAleatorio = (float)Math.Round(new Random().NextDouble(), 2);
+                    return valorAleatorio;
+
                 default:
                     if (_funcoesJogador.ContainsKey(nomeCompleto))
                     {
@@ -791,6 +811,7 @@ namespace Jogo.Core
                     case "velocidade": return _jogo.ObterVelocidadeInimigo(idInimigo);
                     case "posicaoX": return _jogo.ObterPosicaoXInimigo(idInimigo);
                     case "posicaoY": return _jogo.ObterPosicaoYInimigo(idInimigo);
+                    case "vida": return _jogo.ObterVidaInimigo(idInimigo);
                     default:
                         throw new Exception($"L:{context.Start.Line}|O atributo '{atributo}' não existe em um Inimigo.");
                 }
