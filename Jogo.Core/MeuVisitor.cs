@@ -294,25 +294,29 @@ namespace Jogo.Core
             string nomeDaVariavel = context.ID().GetText();
             object novoValor = Visit(context.expressao());
 
+            // Validação de escopos
+            bool ehLocal = _escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeDaVariavel);
+            bool ehGlobal = _memoria.ContainsKey(nomeDaVariavel);
+
             DestacarDeclaracao(nomeDaVariavel, "origem_var");
             // Barra o jogador se ele tentar reatribuir: mover = 10
             if (_palavrasReservadas.Contains(nomeDaVariavel)) {
                 throw new Exception($"L:{context.Start.Line}|A palavra '{nomeDaVariavel}' é reservada pelo sistema e não pode ser alterada.");
             }
 
-            if (!_memoria.ContainsKey(nomeDaVariavel) && !(_escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeDaVariavel))) {
+            if (!ehGlobal && !ehLocal) {
                 throw new Exception($"L:{context.Start.Line}|A variável '{nomeDaVariavel}' não foi criada. Declare seu tipo antes (ex: int {nomeDaVariavel} = 0).");
             }
 
+            // Verifica o tipo
             object valorAntigo = _memoria[nomeDaVariavel];
-
             if (valorAntigo.GetType() != novoValor.GetType()) {
                 throw new Exception($"L:{context.Start.Line}|Erro de Tipo: A variável foi criada como '{valorAntigo.GetType().Name}', não pode receber '{novoValor.GetType().Name}'.");
             }
-            
-            if (_escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeDaVariavel))
+
+            // Atualiza a variável caso ela seja local
+            if (ehLocal)
             {
-                // Atualiza a variável caso ela seja local
                 _escoposLocais.Peek()[nomeDaVariavel] = novoValor;
             }
             else
