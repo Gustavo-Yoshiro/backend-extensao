@@ -400,18 +400,32 @@ namespace Jogo.Core
         
         public override object VisitChamadaFuncao([NotNull] LinguagemParser.ChamadaFuncaoContext context)
         {
-            _jogo.DestacarLinhaAtual(context.Start.Line, "chamada_funcao");
-            System.Threading.Thread.Sleep(TEMPO_LINHA);
             string? prefixo = context.objeto != null ? context.objeto.Text : null;
             string nomeFuncao = context.funcao.Text;
             string nomeCompleto = prefixo != null ? $"{prefixo}.{nomeFuncao}" : nomeFuncao;
         
+            HashSet<string> acoesComTick = new HashSet<string> { 
+                "mover", "atacar", "escapar", "arena", 
+                "cinto.usarItem", "mochila.usarItem", "comprar", "venderTudo" 
+            };
+            
+            bool ehAcaoPendente = acoesComTick.Contains(nomeCompleto);
+
+            if (ehAcaoPendente)
+            {
+                _jogo.DestacarLinhaAtual(context.Start.Line, "chamada_funcao_pendente");
+            }
+            
             List<object> args = new List<object>();
             if (context.expressao() != null)
             {
                 foreach (var exp in context.expressao()) args.Add(Visit(exp));
             }
         
+            string categoriaDestaque = ehAcaoPendente ? "chamada_funcao_pendente" : "chamada_funcao";
+            _jogo.DestacarLinhaAtual(context.Start.Line, categoriaDestaque);
+            System.Threading.Thread.Sleep(TEMPO_LINHA);
+
             switch (nomeCompleto)
             {
             // ==========================================
