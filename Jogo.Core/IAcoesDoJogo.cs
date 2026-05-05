@@ -42,7 +42,7 @@ namespace Jogo.Core
         float ObterVelocidadeInimigo(string inimigoId);
         int ObterPosicaoXInimigo(string inimigoId);
         int ObterPosicaoYInimigo(string inimigoId);
-        int ObterVidaInimigo(string inimigoId);
+        float ObterVidaInimigo(string inimigoId);
 
         // OBS: Função legada, mantida para evitar conflitos temporários com o Godot.
         // O jogador não consegue mais usar nomeInimigo() na linguagem, ele usa alvo.nome.
