@@ -13,6 +13,7 @@ comando: declaracaoVariavel
        | estruturaEnquanto
        | declaracaoFuncao
        | comandoRetorno
+       | atribuicaoLista
        | chamadaFuncao;
 
 // Declaração de variável 
@@ -64,6 +65,7 @@ expressao: expressao (MULT | DIV | MOD) expressao
 // Listas e acesso por índice (ex: vetor = [1, 2, 3] e vetor[0])
 lista: '[' (expressao (',' expressao)*)? ']';
 acessoLista: ID '[' expressao ']';
+atribuicaoLista: ID '[' expressao ']' '=' expressao;
 
 
 // ==========================================

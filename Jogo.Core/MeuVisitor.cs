@@ -211,8 +211,16 @@ namespace Jogo.Core
             if (_palavrasReservadas.Contains(nomeDaVariavel)) {
                 throw new Exception($"L:{context.Start.Line}|'{nomeDaVariavel}' é uma função ou palavra reservada do jogo e não pode ser usada como nome de variável.");
             }
-
+            
             object valorResolvido = Visit(context.expressao());
+
+            // Verifica se já foi declarada
+            if (_escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeDaVariavel))
+                throw new Exception($"L:{context.Start.Line}| Variável '{nomeDaVariavel}' Já foi declarada");
+            else if (_memoria.ContainsKey(nomeDaVariavel))
+                throw new Exception($"L:{context.Start.Line}| Variável '{nomeDaVariavel}' Já foi declarada");
+
+
             VerificarTipo(tipoDeclarado, valorResolvido, nomeDaVariavel, context.Start.Line);
 
             if (_escoposLocais.Count > 0)
@@ -732,7 +740,7 @@ namespace Jogo.Core
             // Bloqueia se tentar usar nome do sistema (Ex: mover, atacar)
             if (_palavrasReservadas.Contains(nomeDaFuncao))
                 throw new Exception($"L:{context.Start.Line}|A palavra '{nomeDaFuncao}' é reservada pelo sistema e não pode ser usada como nome de função.");
-        
+            
             // Armazena função
             _funcoesJogador[nomeDaFuncao] = context;
             
@@ -848,7 +856,47 @@ namespace Jogo.Core
                 System.Threading.Thread.Sleep(TEMPO_LINHA);
             }
         }
+        
+        public override object VisitAtribuicaoLista([NotNull] LinguagemParser.AtribuicaoListaContext context)
+        {
+            // O nome do vetor
+            string nomeLista = context.ID().GetText();
+            
+            // Índice dentro dos colchetes
+            object objIndice = Visit(context.expressao(0));
+            int indice = Convert.ToInt32(objIndice); 
+            
+            // Novo valor
+            object novoValor = Visit(context.expressao(1)); 
+        
+            List<object>? listaAlvo = null;
+        
+            // Procura a lista no escopo local
+            if (_escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeLista))
+            {
+                listaAlvo = _escoposLocais.Peek()[nomeLista] as List<object>;
+            }
+            // Procura a lista na memória global
+            else if (_memoria.ContainsKey(nomeLista))
+            {
+                listaAlvo = _memoria[nomeLista] as List<object>;
+            }
+        
+            // Validações
+            if (listaAlvo == null)
+                throw new Exception($"L:{context.Start.Line}|A variável '{nomeLista}' não é uma lista válida ou não foi declarada.");
+        
+            if (indice < 0 || indice >= listaAlvo.Count)
+                throw new Exception($"L:{context.Start.Line}|Índice '{indice}' inválido. A lista '{nomeLista}' tem tamanho {listaAlvo.Count}.");
+        
+            // Faz a alteração
+            listaAlvo[indice] = novoValor;
+        
+            return null!;
+        }
+
     }
+
     // Classe para carregar o valor do 'retorna' para fora da função
     public class ExcecaoRetorno : Exception
     {

@@ -673,6 +673,40 @@ namespace Jogo.Core.Tests
 
             jogoMock.Received(1).Escreva("Numero dentro do limite");
         }
+        [Fact]
+        public void Deve_Alterar_Valor_No_Vetor()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            string codigo = "string Vetor = [\"Valor antigo\", \"Indice '1'\"]\n" +
+                            "int i = 0\n" +
+                            "Vetor[i] = \"Valor novo\" \n" +
+                            "escreva(Vetor[i])\n" +
+                            "";
+
+            Executar(codigo, visitor);
+            jogoMock.Received(1).Escreva("Valor novo");
+        }
+    
+        [Fact]
+        public void Deve_Impedir_Redeclaracao()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            string codigo = "string Vetor = [\"Valor antigo\", \"Indice '1'\"]\n" +
+                            "int i = 0\n" +
+                            "int i = 0\n" +
+                            "Vetor[i] = \"Valor novo\" \n" +
+                            "escreva(Vetor[i])\n" +
+                            "";
+
+            
+            var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
+            
+            Assert.Contains("L:3| Variável 'i' Já foi declarada", excecao.Message);
+        }
 
     }
 
