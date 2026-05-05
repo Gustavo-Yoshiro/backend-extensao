@@ -292,17 +292,18 @@ namespace Jogo.Core
             _jogo.DestacarLinhaAtual(context.Start.Line, "atribuicao");
             System.Threading.Thread.Sleep(TEMPO_LINHA);
             string nomeDaVariavel = context.ID().GetText();
+            object novoValor = Visit(context.expressao());
 
             DestacarDeclaracao(nomeDaVariavel, "origem_var");
             // Barra o jogador se ele tentar reatribuir: mover = 10
             if (_palavrasReservadas.Contains(nomeDaVariavel)) {
                 throw new Exception($"L:{context.Start.Line}|A palavra '{nomeDaVariavel}' é reservada pelo sistema e não pode ser alterada.");
             }
-            if (!_memoria.ContainsKey(nomeDaVariavel)) {
+
+            if (!_memoria.ContainsKey(nomeDaVariavel) && !(_escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeDaVariavel))) {
                 throw new Exception($"L:{context.Start.Line}|A variável '{nomeDaVariavel}' não foi criada. Declare seu tipo antes (ex: int {nomeDaVariavel} = 0).");
             }
 
-            object novoValor = Visit(context.expressao());
             object valorAntigo = _memoria[nomeDaVariavel];
 
             if (valorAntigo.GetType() != novoValor.GetType()) {
@@ -313,10 +314,12 @@ namespace Jogo.Core
             {
                 // Atualiza a variável caso ela seja local
                 _escoposLocais.Peek()[nomeDaVariavel] = novoValor;
-                return null!;
+            }
+            else
+            {
+                _memoria[nomeDaVariavel] = novoValor;
             }
             
-            _memoria[nomeDaVariavel] = novoValor;
             return null!;
         }
 
