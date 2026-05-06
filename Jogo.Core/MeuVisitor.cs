@@ -22,6 +22,9 @@ namespace Jogo.Core
         private Dictionary<string, LinguagemParser.DeclaracaoFuncaoContext> _funcoesJogador = new Dictionary<string, LinguagemParser.DeclaracaoFuncaoContext>();
         private readonly IAcoesDoJogo _jogo;
 
+        // Anota quais linhas de declaração já foram processadas para permitir loops
+        private HashSet<LinguagemParser.DeclaracaoVariavelContext> _declaracoesRegistradas = new HashSet<LinguagemParser.DeclaracaoVariavelContext>();
+
         // ==========================================
         // CATEGORIAS DE "ENUMS" E FUNÇÕES
         // ==========================================
@@ -199,6 +202,7 @@ namespace Jogo.Core
         {
             _jogo.DestacarLinhaAtual(context.Start.Line, "declaracao_var");
             System.Threading.Thread.Sleep(TEMPO_LINHA);
+            
             string tipoDeclarado = context.TIPO().GetText();
             string nomeDaVariavel = context.ID().GetText();
             
@@ -206,39 +210,65 @@ namespace Jogo.Core
             {
                 throw new Exception($"L:{context.Start.Line}|Não é possível criar uma variável do tipo 'vazio'. Esse tipo é exclusivo para funções e procedimentos.");
             }
-
+        
             // Essa é a linha que vai barrar o jogador se ele tentar: int mover = 10
-            if (_palavrasReservadas.Contains(nomeDaVariavel)) {
+            if (_palavrasReservadas.Contains(nomeDaVariavel)) 
+            {
                 throw new Exception($"L:{context.Start.Line}|'{nomeDaVariavel}' é uma função ou palavra reservada do jogo e não pode ser usada como nome de variável.");
             }
             
             object valorResolvido = Visit(context.expressao());
-
-            // Verifica se já foi declarada
-            if (_escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeDaVariavel))
-                throw new Exception($"L:{context.Start.Line}| Variável '{nomeDaVariavel}' Já foi declarada");
-            else if (_memoria.ContainsKey(nomeDaVariavel))
-                throw new Exception($"L:{context.Start.Line}| Variável '{nomeDaVariavel}' Já foi declarada");
-
-
+        
+            // Valida o tipo antes de tentar salvar
             VerificarTipo(tipoDeclarado, valorResolvido, nomeDaVariavel, context.Start.Line);
-
+        
+            // LÓGICA DE SALVAMENTO COM SUPORTE A LOOPS
+            // Foi necessário esse método por bugs envolvendo loops
             if (_escoposLocais.Count > 0)
             {
-                // Cria a variável restrita à função
-                _escoposLocais.Peek()[nomeDaVariavel] = valorResolvido;
+                var escopoAtual = _escoposLocais.Peek();
+        
+                if (escopoAtual.ContainsKey(nomeDaVariavel))
+                {
+                    // Se for a mesma linha girando num loop, apenas atualiza o valor
+                    if (_declaracoesRegistradas.Contains(context))
+                    {
+                        escopoAtual[nomeDaVariavel] = valorResolvido;
+                        return null!;
+                    }
+                    
+                    // Se não for um loop (o jogador escreveu int i em duas linhas diferentes)
+                    throw new Exception($"L:{context.Start.Line}| Variável '{nomeDaVariavel}' já foi declarada.");
+                }
+        
+                // Cria a variável restrita à função pela primeira vez
+                escopoAtual[nomeDaVariavel] = valorResolvido;
                 _linhasDeclaracaoLocal.Peek()[nomeDaVariavel] = context.Start.Line;
+                _declaracoesRegistradas.Add(context); // Anota no caderninho
             }
             else
             {
+                if (_memoria.ContainsKey(nomeDaVariavel))
+                {
+                    // Se for a mesma linha girando num loop, apenas atualiza o valor
+                    if (_declaracoesRegistradas.Contains(context))
+                    {
+                        _memoria[nomeDaVariavel] = valorResolvido;
+                        return null!;
+                    }
+        
+                    // Se não for um loop
+                    throw new Exception($"L:{context.Start.Line}| Variável '{nomeDaVariavel}' já foi declarada.");
+                }
+        
                 // Se a pilha está vazia, cria a variável de forma global para o jogo inteiro ver
                 _memoria[nomeDaVariavel] = valorResolvido;
                 _linhasDeclaracaoGlobal[nomeDaVariavel] = context.Start.Line;
+                _declaracoesRegistradas.Add(context); // Anota no caderninho
             }
-
+        
             return null!;
         }
-
         private void VerificarTipo(string tipoEsperado, object valor, string nomeVar, int linha)
         {
             // VERIFICAÇÃO ESPECIAL PARA LISTAS
@@ -308,10 +338,27 @@ namespace Jogo.Core
                 throw new Exception($"L:{context.Start.Line}|A variável '{nomeDaVariavel}' não foi criada. Declare seu tipo antes (ex: int {nomeDaVariavel} = 0).");
             }
 
-            // Verifica o tipo
-            object valorAntigo = _memoria[nomeDaVariavel];
-            if (valorAntigo.GetType() != novoValor.GetType()) {
-                throw new Exception($"L:{context.Start.Line}|Erro de Tipo: A variável foi criada como '{valorAntigo.GetType().Name}', não pode receber '{novoValor.GetType().Name}'.");
+            // Processo para validar o tipo
+            object valorAntigo = ehLocal ? _escoposLocais.Peek()[nomeDaVariavel] : _memoria[nomeDaVariavel];
+            Type tipoOriginal = valorAntigo.GetType();
+            Type tipoNovo = novoValor.GetType();
+
+            if (tipoOriginal != tipoNovo)
+            {
+                // Exceção matemática: Se a variável for 'float' e o jogador tentar guardar um 'int', é permitido
+                // e é convertido o 'int' para 'float' automaticamente
+                if (tipoOriginal == typeof(float) && (tipoNovo == typeof(int) || tipoNovo == typeof(double)))
+                {
+                    novoValor = Convert.ToSingle(novoValor);
+                }
+                else
+                {
+                    // Traduzindo os nomes técnicos do C# para os nomes do GDD
+                    string nomeOriginal = tipoOriginal.Name.Replace("Int32", "int").Replace("Single", "float").Replace("String", "string").Replace("Boolean", "bool");
+                    string nomeNovo = tipoNovo.Name.Replace("Int32", "int").Replace("Single", "float").Replace("String", "string").Replace("Boolean", "bool");
+
+                    throw new Exception($"L:{context.Start.Line}|Erro de tipo: A variável '{nomeDaVariavel}' é do tipo '{nomeOriginal}', mas você tentou atribuir um valor do tipo '{nomeNovo}'.");
+                }
             }
 
             // Atualiza a variável caso ela seja local

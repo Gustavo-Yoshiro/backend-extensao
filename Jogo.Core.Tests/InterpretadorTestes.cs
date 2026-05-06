@@ -705,7 +705,53 @@ namespace Jogo.Core.Tests
             
             var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
             
-            Assert.Contains("L:3| Variável 'i' Já foi declarada", excecao.Message);
+            Assert.Contains("L:3| Variável 'i' já foi declarada.", excecao.Message);
+        }
+        
+        [Fact]
+        public void Teste_Aberto()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            string codigo = "vazio funcaolegal():\n" +
+                            "   int j = 0\n" +
+                            "   enquanto (j < 10):\n" +
+                            "       Ataque atk = Fogo\n" +
+                            "       se (j % 2 == 1):\n" +
+                            "           atk = Fogo\n" +
+                            "           j = j + 1\n" +
+                            "       senao:\n" +
+                            "           atk = Gelo\n" +
+                            "           j = j + 1\n" +
+                            "       fim se\n" +
+                            "   fim enquanto\n" +
+                            "   escreva(atk)\n" +
+                            "fim funcao\n" +
+                            "funcaolegal()\n" +
+
+                        "int j = 0\n"+
+                        "enquanto(j < 4):\n"+
+		                "   se(Verdadeiro):\n"+
+		                "   	int proxX = 0\n"+
+		                "   	int proxY = 0\n"+
+		                "   	se(Falso):\n"+
+		                "   		proxY = j - 1\n"+
+		                "   	senao se(Falso):\n"+
+		                "   		proxY = j + 1\n"+
+		                "   	senao se(Falso):\n"+
+		                "   		proxX = j + 1\n"+
+		                "   	senao se(Verdadeiro):\n"+
+		                "   		proxX = j - 1\n"+
+		                "       fim se\n" +
+		                "   fim se\n" +
+		                "   j = j + 1\n" +
+		                "fim enquanto\n";
+
+
+            
+            Executar(codigo, visitor);
+            jogoMock.Received(1).Escreva("Fogo");
         }
 
     }
