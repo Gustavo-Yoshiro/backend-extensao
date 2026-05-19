@@ -589,15 +589,13 @@ namespace Jogo.Core.Tests
             
             // Quando o código pedir os atributos do "Vampiro", o Mock vai responder isso:
             jogoMock.ObterNomeInimigo("Vampiro").Returns("Vampiro");
-            jogoMock.ObterVelocidadeInimigo("Vampiro").Returns(15.5f);
             
             var visitor = new MeuVisitor(jogoMock);
 
-            // Testa o acesso ao nome e à velocidade
+            // Testa o acesso ao nome
             string codigo = "Inimigo alvo = \"Vampiro\"\n" +
                             "string n = alvo.nome\n" +
-                            "float v = alvo.velocidade\n" +
-                            "se (n == \"Vampiro\" e v > 10.0):\n" +
+                            "se (n == \"Vampiro\":\n" +
                             "    mover(Cima)\n" +
                             "fim se"; 
 

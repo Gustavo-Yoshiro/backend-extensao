@@ -55,6 +55,7 @@ expressao: expressao (MULT | DIV | MOD) expressao
          | NUMERO_FLOAT
          | BOOLEANO
          | STRING_LIT
+         | NULO
          | chamadaFuncao
          | '(' expressao ')'
          | lista
@@ -79,8 +80,9 @@ TIPO: 'vazio' | 'int' | 'float' | 'bool' | 'string'| 'Inimigo' | 'Arena' | 'Ataq
 SE: 'se';
 ENQUANTO: 'enquanto';
 
-// Valores Lógicos
+// Valores Lógicos e Nulos
 BOOLEANO: 'Verdadeiro' | 'Falso';
+NULO: 'Nulo';
 
 // Operadores
 SOMA: '+';

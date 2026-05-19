@@ -10,19 +10,15 @@ namespace Jogo.Core
         const int TEMPO_LINHA = 0;
         private const int DELAY_TRANSICAO_CENA = 1000;
 
-        // 1. Memória Global
         private Dictionary<string, object> _memoria = new Dictionary<string, object>();
         private Dictionary<string, int> _linhasDeclaracaoGlobal = new Dictionary<string, int>();
         private Stack<Dictionary<string, int>> _linhasDeclaracaoLocal = new Stack<Dictionary<string, int>>();
 
-        // 2. Pilha de Escopos Locais
         private Stack<Dictionary<string, object>> _escoposLocais = new Stack<Dictionary<string, object>>();
 
-        // 3. Gaveta para guardar as funções criadas pelo player
         private Dictionary<string, LinguagemParser.DeclaracaoFuncaoContext> _funcoesJogador = new Dictionary<string, LinguagemParser.DeclaracaoFuncaoContext>();
         private readonly IAcoesDoJogo _jogo;
 
-        // Anota quais linhas de declaração já foram processadas para permitir loops
         private HashSet<LinguagemParser.DeclaracaoVariavelContext> _declaracoesRegistradas = new HashSet<LinguagemParser.DeclaracaoVariavelContext>();
 
         // ==========================================
@@ -35,8 +31,6 @@ namespace Jogo.Core
         private HashSet<string> _arenas = new HashSet<string> { "Campos", "Floresta", "Labirinto" };
         private HashSet<string> _itens = new HashSet<string> { "PocaoDeVida" };
 
-        
-        // NOVO: Lista de todas as funções e objetos nativos do jogo
         private HashSet<string> _funcoesEObjetosNativos = new HashSet<string> { 
             "mover", "podeMover", "atacar", "tempo", "vidaAtual", 
             "inimigoMaisProximo", "escanearArea", "posicaoX", "posicaoY", 
@@ -58,7 +52,6 @@ namespace Jogo.Core
             _palavrasReservadas.UnionWith(_arenas);
             _palavrasReservadas.UnionWith(_itens);
             
-            // Adiciona as funções à lista gigante de palavras proibidas
             _palavrasReservadas.UnionWith(_funcoesEObjetosNativos);
 
             foreach (var constante in _palavrasReservadas)
@@ -74,6 +67,7 @@ namespace Jogo.Core
             if (context.NUMERO_FLOAT() != null) return float.Parse(context.NUMERO_FLOAT().GetText(), System.Globalization.CultureInfo.InvariantCulture);
             if (context.STRING_LIT() != null) return context.STRING_LIT().GetText().Trim('"');
             if (context.BOOLEANO() != null) return context.BOOLEANO().GetText() == "Verdadeiro";
+            if (context.NULO() != null) return null!;
             if (context.acessoAtributo() != null) return Visit(context.acessoAtributo());
 
             if (context.ChildCount == 3 && context.GetChild(0).GetText() == "(")
@@ -85,50 +79,49 @@ namespace Jogo.Core
                 _jogo.DestacarLinhaAtual(context.Start.Line, "leitura_var");
                 System.Threading.Thread.Sleep(TEMPO_LINHA);
                 DestacarDeclaracao(nomeVar, "origem_var");
-                // 1. Procura primeiro no Escopo Local
+                
                 if (_escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeVar))
-                {
                     return _escoposLocais.Peek()[nomeVar];
-                }
 
-                // 2. Se não achou, procura na Memória Global
                 if (_memoria.ContainsKey(nomeVar))
-                {
                     return _memoria[nomeVar];
-                }
 
-                // Se não achou em lugar nenhum, o jogador digitou uma variável que não existe
                 throw new Exception($"L:{context.Start.Line}|A variável '{nomeVar}' não foi declarada.");
             }
 
-
-            // Se o antlr achar o !
             if (context.NAO() != null)
             {
-                // Resolve a expressao na direita
                 object valor = Visit(context.expressao(0)); 
-                
-                if (valor is bool condicaoBooleana)
-                {
-                    return !condicaoBooleana; 
-                }
-                
-                // Se o jogador tentou fazer algo absurdo tipo !5 ou !"texto"
-                throw new Exception($"L:{context.Start.Line}|O operador '!' só pode ser usado com valores Verdadeiro ou Falso.");
+                if (valor is bool condicaoBooleana) return !condicaoBooleana; 
+                throw new Exception($"L:{context.Start.Line}|O operador '!' só pode ser usado com Verdadeiro ou Falso.");
             }
             
-            // Redireciona para as funções especializadas de lista
             if (context.lista() != null) return Visit(context.lista());
             if (context.acessoLista() != null) return Visit(context.acessoLista());
-
 
             if (context.expressao().Length == 2)
             {
                 object esquerdo = Visit(context.expressao(0));
                 object direito = Visit(context.expressao(1));
 
+                if (context.IGUAL() != null)
+                {
+                    if (esquerdo == null && direito == null) return true;
+                    if (esquerdo == null || direito == null) return false;
+                    return esquerdo.Equals(direito);
+                }
+                if (context.DIFERENTE() != null)
+                {
+                    if (esquerdo == null && direito == null) return false;
+                    if (esquerdo == null || direito == null) return true;
+                    return !esquerdo.Equals(direito);
+                }
+
                 if (context.E() != null || context.OU() != null)
                 {
+                    if (esquerdo == null || direito == null)
+                        throw new Exception($"L:{context.Start.Line}|Operadores 'e'/'ou' não aceitam 'Nulo'. Use Verdadeiro ou Falso.");
+                    
                     if (esquerdo is bool boolEsq && direito is bool boolDir)
                     {
                         if (context.E() != null) return boolEsq && boolDir;
@@ -137,8 +130,19 @@ namespace Jogo.Core
                     throw new Exception($"L:{context.Start.Line}|Operadores 'e'/'ou' só funcionam com valores lógicos (Verdadeiro/Falso).");
                 }
 
-                if (context.IGUAL() != null) return esquerdo.Equals(direito); 
-                if (context.DIFERENTE() != null) return !esquerdo.Equals(direito); 
+                if (context.SOMA() != null && (esquerdo is string || direito is string))
+                {
+                    string strEsq = esquerdo == null ? "Nulo" : (esquerdo is bool bEsq ? (bEsq ? "Verdadeiro" : "Falso") : esquerdo.ToString());
+                    string strDir = direito == null ? "Nulo" : (direito is bool bDir ? (bDir ? "Verdadeiro" : "Falso") : direito.ToString());
+
+                    if (esquerdo is float fEsq) strEsq = fEsq.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    if (direito is float fDir) strDir = fDir.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+                    return strEsq + strDir;
+                }
+
+                if (esquerdo == null) esquerdo = 0;
+                if (direito == null) direito = 0;
 
                 bool esqEhNumero = esquerdo is int || esquerdo is float;
                 bool dirEhNumero = direito is int || direito is float;
@@ -153,8 +157,9 @@ namespace Jogo.Core
                         if (context.SOMA() != null) return fEsq + fDir;
                         if (context.SUB() != null) return fEsq - fDir;
                         if (context.MULT() != null) return fEsq * fDir;
-                        if (context.DIV() != null) return fEsq / fDir;
-                        if (context.MOD() != null) return fEsq % fDir;
+                        
+                        if (context.DIV() != null) return fDir == 0 ? 0f : fEsq / fDir;
+                        if (context.MOD() != null) return fDir == 0 ? 0f : fEsq % fDir;
 
                         if (context.MAIOR_IGUAL() != null) return fEsq >= fDir;
                         if (context.MENOR_IGUAL() != null) return fEsq <= fDir;
@@ -169,8 +174,9 @@ namespace Jogo.Core
                         if (context.SOMA() != null) return iEsq + iDir;
                         if (context.SUB() != null) return iEsq - iDir;
                         if (context.MULT() != null) return iEsq * iDir;
-                        if (context.DIV() != null) return iEsq / iDir;
-                        if (context.MOD() != null) return iEsq % iDir;
+                        
+                        if (context.DIV() != null) return iDir == 0 ? 0 : iEsq / iDir;
+                        if (context.MOD() != null) return iDir == 0 ? 0 : iEsq % iDir;
 
                         if (context.MAIOR_IGUAL() != null) return iEsq >= iDir;
                         if (context.MENOR_IGUAL() != null) return iEsq <= iDir;
@@ -179,22 +185,9 @@ namespace Jogo.Core
                     }
                 }
 
-                if (context.SOMA() != null && (esquerdo is string || direito is string))
-                {
-                    // Cuidamos para que os booleanos fiquem em Português
-                    string strEsq = esquerdo is bool bEsq ? (bEsq ? "Verdadeiro" : "Falso") : esquerdo.ToString();
-                    string strDir = direito is bool bDir ? (bDir ? "Verdadeiro" : "Falso") : direito.ToString();
-
-                    // Se for float, garantimos que ele use ponto ao invés de vírgula (ex: 51.5)
-                    if (esquerdo is float fEsq) strEsq = fEsq.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                    if (direito is float fDir) strDir = fDir.ToString(System.Globalization.CultureInfo.InvariantCulture);
-
-                    return strEsq + strDir;
-                }
-
                 throw new Exception($"L:{context.Start.Line}|Não é possível calcular '{esquerdo.GetType().Name}' com '{direito.GetType().Name}'.");
             }
-
+            
             return null!;
         }
 
@@ -211,7 +204,6 @@ namespace Jogo.Core
                 throw new Exception($"L:{context.Start.Line}|Não é possível criar uma variável do tipo 'vazio'. Esse tipo é exclusivo para funções e procedimentos.");
             }
         
-            // Essa é a linha que vai barrar o jogador se ele tentar: int mover = 10
             if (_palavrasReservadas.Contains(nomeDaVariavel)) 
             {
                 throw new Exception($"L:{context.Start.Line}|'{nomeDaVariavel}' é uma função ou palavra reservada do jogo e não pode ser usada como nome de variável.");
@@ -219,71 +211,61 @@ namespace Jogo.Core
             
             object valorResolvido = Visit(context.expressao());
         
-            // Valida o tipo antes de tentar salvar
             VerificarTipo(tipoDeclarado, valorResolvido, nomeDaVariavel, context.Start.Line);
-        
-            // LÓGICA DE SALVAMENTO COM SUPORTE A LOOPS
-            // Foi necessário esse método por bugs envolvendo loops
+
             if (_escoposLocais.Count > 0)
             {
                 var escopoAtual = _escoposLocais.Peek();
         
                 if (escopoAtual.ContainsKey(nomeDaVariavel))
                 {
-                    // Se for a mesma linha girando num loop, apenas atualiza o valor
                     if (_declaracoesRegistradas.Contains(context))
                     {
                         escopoAtual[nomeDaVariavel] = valorResolvido;
                         return null!;
                     }
                     
-                    // Se não for um loop (o jogador escreveu int i em duas linhas diferentes)
                     throw new Exception($"L:{context.Start.Line}| Variável '{nomeDaVariavel}' já foi declarada.");
                 }
         
-                // Cria a variável restrita à função pela primeira vez
                 escopoAtual[nomeDaVariavel] = valorResolvido;
                 _linhasDeclaracaoLocal.Peek()[nomeDaVariavel] = context.Start.Line;
-                _declaracoesRegistradas.Add(context); // Anota no caderninho
+                _declaracoesRegistradas.Add(context);
             }
             else
             {
                 if (_memoria.ContainsKey(nomeDaVariavel))
                 {
-                    // Se for a mesma linha girando num loop, apenas atualiza o valor
                     if (_declaracoesRegistradas.Contains(context))
                     {
                         _memoria[nomeDaVariavel] = valorResolvido;
                         return null!;
                     }
         
-                    // Se não for um loop
                     throw new Exception($"L:{context.Start.Line}| Variável '{nomeDaVariavel}' já foi declarada.");
                 }
         
-                // Se a pilha está vazia, cria a variável de forma global para o jogo inteiro ver
                 _memoria[nomeDaVariavel] = valorResolvido;
                 _linhasDeclaracaoGlobal[nomeDaVariavel] = context.Start.Line;
-                _declaracoesRegistradas.Add(context); // Anota no caderninho
+                _declaracoesRegistradas.Add(context);
             }
         
             return null!;
         }
         private void VerificarTipo(string tipoEsperado, object valor, string nomeVar, int linha)
         {
-            // VERIFICAÇÃO ESPECIAL PARA LISTAS
+            if (valor == null) return;
+
             if (valor is List<object> listaDeValores)
             {
-                if (listaDeValores.Count == 0) return; // Se for lista vazia []
+                if (listaDeValores.Count == 0) return;
 
-                // Inspeciona item por item dentro da lista
                 foreach (var item in listaDeValores)
                 {
                     bool itemValido = false;
                     switch (tipoEsperado)
                     {
                         case "int": itemValido = item is int; break;
-                        // Uma lista de floats pode receber números inteiros também
                         case "float": itemValido = item is float || item is int; break; 
                         case "bool": itemValido = item is bool; break;
                         case "string":
@@ -299,7 +281,6 @@ namespace Jogo.Core
                 
                 return; 
             }
-            // VERIFICAÇÃO NORMAL (Código Original)
             bool tipoValido = false;
             switch (tipoEsperado)
             {
@@ -324,12 +305,10 @@ namespace Jogo.Core
             string nomeDaVariavel = context.ID().GetText();
             object novoValor = Visit(context.expressao());
 
-            // Validação de escopos
             bool ehLocal = _escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeDaVariavel);
             bool ehGlobal = _memoria.ContainsKey(nomeDaVariavel);
 
             DestacarDeclaracao(nomeDaVariavel, "origem_var");
-            // Barra o jogador se ele tentar reatribuir: mover = 10
             if (_palavrasReservadas.Contains(nomeDaVariavel)) {
                 throw new Exception($"L:{context.Start.Line}|A palavra '{nomeDaVariavel}' é reservada pelo sistema e não pode ser alterada.");
             }
@@ -338,22 +317,18 @@ namespace Jogo.Core
                 throw new Exception($"L:{context.Start.Line}|A variável '{nomeDaVariavel}' não foi criada. Declare seu tipo antes (ex: int {nomeDaVariavel} = 0).");
             }
 
-            // Processo para validar o tipo
             object valorAntigo = ehLocal ? _escoposLocais.Peek()[nomeDaVariavel] : _memoria[nomeDaVariavel];
             Type tipoOriginal = valorAntigo.GetType();
             Type tipoNovo = novoValor.GetType();
 
             if (tipoOriginal != tipoNovo)
             {
-                // Exceção matemática: Se a variável for 'float' e o jogador tentar guardar um 'int', é permitido
-                // e é convertido o 'int' para 'float' automaticamente
                 if (tipoOriginal == typeof(float) && (tipoNovo == typeof(int) || tipoNovo == typeof(double)))
                 {
                     novoValor = Convert.ToSingle(novoValor);
                 }
                 else
                 {
-                    // Traduzindo os nomes técnicos do C# para os nomes do GDD
                     string nomeOriginal = tipoOriginal.Name.Replace("Int32", "int").Replace("Single", "float").Replace("String", "string").Replace("Boolean", "bool");
                     string nomeNovo = tipoNovo.Name.Replace("Int32", "int").Replace("Single", "float").Replace("String", "string").Replace("Boolean", "bool");
 
@@ -361,7 +336,6 @@ namespace Jogo.Core
                 }
             }
 
-            // Atualiza a variável caso ela seja local
             if (ehLocal)
             {
                 _escoposLocais.Peek()[nomeDaVariavel] = novoValor;
@@ -378,7 +352,6 @@ namespace Jogo.Core
         {
             _jogo.DestacarLinhaAtual(context.Start.Line, "se_senao");
             System.Threading.Thread.Sleep(TEMPO_LINHA);
-            // Teste do bloco 'SE' principal
             object resultadoCondicaoSe = Visit(context.expressao());
 
             if (!(resultadoCondicaoSe is bool condicaoSe))
@@ -391,11 +364,9 @@ namespace Jogo.Core
 
                 _jogo.DestacarLinhaAtual(context.Stop.Line, "fim_se");
                 System.Threading.Thread.Sleep(TEMPO_LINHA);
-                // O return null! encerra a função. Isso garante que nenhum 'senão se' ou 'senão' será lido.
                 return null!; 
             }
 
-            // Executa todos Senao Se (0 ou +)
             if (context.estruturaSenaoSe() != null)
             {
                 foreach (var senaoSeContext in context.estruturaSenaoSe())
@@ -407,7 +378,6 @@ namespace Jogo.Core
                     if (!(resultadoSenaoSe is bool condicaoSenaoSe))
                         throw new Exception("Erro de Tipo: A condição do 'senão se' precisa ser Verdadeiro ou Falso.");
 
-                    // Procura pelo 'Senao Se' vdd e retorna se achar.
                     if (condicaoSenaoSe)
                     {
                         Console.WriteLine("[Controle de Fluxo] Um 'senão se' é Verdadeiro! Executando bloco.");
@@ -415,12 +385,11 @@ namespace Jogo.Core
                         _jogo.DestacarLinhaAtual(context.Stop.Line, "fim_se");
                         System.Threading.Thread.Sleep(TEMPO_LINHA);
 
-                        return null!; // Encerra a função. Ignora os próximos 'senão se' e o 'senão'.
+                        return null!;
                     }
                 }
             }
 
-            // Verifica o Senao.
             if (context.estruturaSenao() != null)
             {
                 Console.WriteLine("[Controle de Fluxo] Tudo foi falso. Executando bloco 'senão'.");
@@ -529,7 +498,9 @@ namespace Jogo.Core
         
                 case "inimigoMaisProximo":
                     if (args.Count != 0) throw new Exception($"L:{context.Start.Line}|'inimigoMaisProximo()' não recebe parâmetros.");
-                    return _jogo.InimigoMaisProximo();
+                    string idInimigo = _jogo.InimigoMaisProximo();
+                    if (string.IsNullOrEmpty(idInimigo) || idInimigo == "vazio") return null!;
+                    return idInimigo;
 
                 // ==========================================
                 // SISTEMA RELACIONADOS A ARENA
@@ -662,7 +633,6 @@ namespace Jogo.Core
                     if (!(args[0] is float || args[0] is int))
                         throw new Exception($"L:{context.Start.Line}|O argumento de 'trunca()' deve ser um número (int ou float).");
         
-                    // Extrai o valor do código convertendo pra float e retorna o valor truncado 
                     float valorParaTruncar = Convert.ToSingle(args[0]);
                     return (int)Math.Truncate(valorParaTruncar);
 
@@ -682,7 +652,6 @@ namespace Jogo.Core
                     if (args.Count != 0) 
                         throw new Exception($"L:{context.Start.Line}|A função 'aleatorio()' não recebe argumentos.");
                     
-                    // Gera um número entre 0.0 e 1.0 e arredonda para 2 casas decimais
                     float valorAleatorio = (float)Math.Round(new Random().NextDouble(), 2);
                     return valorAleatorio;
 
@@ -714,7 +683,6 @@ namespace Jogo.Core
                             string paramNome = parametrosEsperados[i].Nome;
                             string paramTipo = parametrosEsperados[i].Tipo;
 
-                            // Validação de Tipagem dos Parâmetros
                             bool tipoInvalido = false;
                             if (paramTipo == "int" && !(argumento is int)) tipoInvalido = true;
                             if (paramTipo == "float" && !(argumento is float || argumento is int)) tipoInvalido = true; 
@@ -727,11 +695,10 @@ namespace Jogo.Core
                             if (tipoInvalido)
                                 throw new Exception($"L:{context.Start.Line}|O argumento passado para '{paramNome}' deveria ser do tipo '{paramTipo}'.");
 
-                            escopoLocal[paramNome] = argumento; // Salva o valor na gaveta local
+                            escopoLocal[paramNome] = argumento;
                             escopoLinhas[paramNome] = parametrosEsperados[i].Linha;
                         }
                         _linhasDeclaracaoLocal.Push(escopoLinhas);
-                        // Coloca o escopo local atual no topo da pilha
                         _escoposLocais.Push(escopoLocal); 
 
                         object? valorRetornado = null;
@@ -747,12 +714,10 @@ namespace Jogo.Core
                         }
                         catch (ExcecaoRetorno retornoException)
                         {
-                            // Ocorreu um "retorna"! O fluxo parou e caiu aqui com o valor.
                             valorRetornado = retornoException.Valor;
                         }
                         finally
                         {
-                            // 4. LIMPEZA: Tira o escopo local da pilha e destrói as variáveis
                             _escoposLocais.Pop(); 
                         }
 
@@ -782,7 +747,6 @@ namespace Jogo.Core
                         return valorRetornado!;
                     }
 
-                    // Se o interpretador não achar nem função nativa nem função do jogador
                     throw new Exception($"L:{context.Start.Line}|O comando '{nomeCompleto}' não é reconhecido.");
                     }
         }
@@ -790,12 +754,10 @@ namespace Jogo.Core
         public override object VisitDeclaracaoFuncao([NotNull] LinguagemParser.DeclaracaoFuncaoContext context)
         {
             string nomeDaFuncao = context.ID().GetText(); 
-        
-            // Bloqueia se tentar usar nome do sistema (Ex: mover, atacar)
+
             if (_palavrasReservadas.Contains(nomeDaFuncao))
                 throw new Exception($"L:{context.Start.Line}|A palavra '{nomeDaFuncao}' é reservada pelo sistema e não pode ser usada como nome de função.");
-            
-            // Armazena função
+
             _funcoesJogador[nomeDaFuncao] = context;
             
             return null!;
@@ -805,17 +767,14 @@ namespace Jogo.Core
         {
             _jogo.DestacarLinhaAtual(context.Start.Line, "retorna");
             System.Threading.Thread.Sleep(TEMPO_LINHA);
-            // Se tiver algo na frente do 'retorna', avaliamos. Se for só 'retorna', fica nulo.
             object? valorDeRetorno = context.expressao() != null ? Visit(context.expressao()) : null;
         
-            // Atira o valor para cima para interromper o fluxo da função!
             throw new ExcecaoRetorno(valorDeRetorno);
         }
        public override object VisitLista([NotNull] LinguagemParser.ListaContext context)
         {
             var lista = new List<object>(); 
             
-            // Se a lista não for vazia, adiciona os itens
             if (context.expressao() != null)
             {
                 foreach (var exp in context.expressao())
@@ -833,7 +792,6 @@ namespace Jogo.Core
             System.Threading.Thread.Sleep(TEMPO_LINHA);
             DestacarDeclaracao(nomeVar, "origem_var");
 
-            // 1. Procura a variável na memória local ou global
             object? valorVar = null;
             if (_escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeVar))
                 valorVar = _escoposLocais.Peek()[nomeVar];
@@ -842,15 +800,19 @@ namespace Jogo.Core
             else
                 throw new Exception($"L:{context.Start.Line}|A lista '{nomeVar}' não foi declarada.");
 
-            // 2. Garante que ela é uma lista mesmo
             if (valorVar is List<object> lista)
             {
-                object indiceObj = Visit(context.expressao()); // Pega a expressão dentro do colchete
+                object indiceObj = Visit(context.expressao());
                 
                 if (indiceObj is int indice)
                 {
-                    if (indice < 0 || indice >= lista.Count)
-                        throw new Exception($"L:{context.Start.Line}|Índice {indice} fora dos limites. A lista '{nomeVar}' tem tamanho {lista.Count}.");
+                    if (indice < 0)
+                        throw new Exception($"L:{context.Start.Line}|Índice '{indice}' inválido. Não é possível usar índices negativos em listas.");
+
+                    if (indice >= lista.Count)
+                    {
+                        return null!;
+                    }
                     
                     return lista[indice]; 
                 }
@@ -861,12 +823,12 @@ namespace Jogo.Core
 
         public override object VisitAcessoAtributo([NotNull] LinguagemParser.AcessoAtributoContext context)
         {
-            string nomeVar = context.ID(0).GetText();   // Pega a palavra antes do ponto (ex: alvo)
-            string atributo = context.ID(1).GetText();  // Pega a palavra depois do ponto (ex: nome)
+            string nomeVar = context.ID(0).GetText();
+            string atributo = context.ID(1).GetText();
             _jogo.DestacarLinhaAtual(context.Start.Line, "leitura_var");
             System.Threading.Thread.Sleep(TEMPO_LINHA);
             DestacarDeclaracao(nomeVar, "origem_var");
-            // 1. Acha a variável na memória
+            
             object valorVar = null;
             if (_escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeVar))
                 valorVar = _escoposLocais.Peek()[nomeVar];
@@ -875,16 +837,17 @@ namespace Jogo.Core
             else
                 throw new Exception($"L:{context.Start.Line}|A variável '{nomeVar}' não foi declarada.");
 
-            // 2. Regra de Negócio: Garante que é uma string.
-            // Como na sua linguagem Inimigos, Arenas e Ataques são salvos como string por baixo dos panos,
-            // se o jogador tentar fazer isso com int, float ou bool, já vai dar erro direto aqui!
             if (valorVar is string idInimigo)
             {
-                // 3. Pede a informação para o Godot!
+
+                if (!_jogo.InimigoExiste(idInimigo))
+                {
+                    return null!; 
+                }
+
                 switch (atributo)
                 {
                     case "nome": return _jogo.ObterNomeInimigo(idInimigo);
-                    case "velocidade": return _jogo.ObterVelocidadeInimigo(idInimigo);
                     case "posicaoX": return _jogo.ObterPosicaoXInimigo(idInimigo);
                     case "posicaoY": return _jogo.ObterPosicaoYInimigo(idInimigo);
                     case "vida": return _jogo.ObterVidaInimigo(idInimigo);
@@ -893,9 +856,9 @@ namespace Jogo.Core
                 }
             }
 
-            // Se o valor não for string (for int, float, bool, ou uma lista), explode o erro exigido no requisito:
             throw new Exception($"L:{context.Start.Line}|Não é possível acessar atributos de '{nomeVar}', pois ele não é um Inimigo.");
         }
+
         private void DestacarDeclaracao(string nomeVar, string categoria)
         {
             if (_linhasDeclaracaoLocal.Count > 0 && _linhasDeclaracaoLocal.Peek().TryGetValue(nomeVar, out int linhaLocal))
@@ -913,37 +876,35 @@ namespace Jogo.Core
         
         public override object VisitAtribuicaoLista([NotNull] LinguagemParser.AtribuicaoListaContext context)
         {
-            // O nome do vetor
             string nomeLista = context.ID().GetText();
             
-            // Índice dentro dos colchetes
             object objIndice = Visit(context.expressao(0));
             int indice = Convert.ToInt32(objIndice); 
             
-            // Novo valor
             object novoValor = Visit(context.expressao(1)); 
         
             List<object>? listaAlvo = null;
         
-            // Procura a lista no escopo local
             if (_escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeLista))
             {
                 listaAlvo = _escoposLocais.Peek()[nomeLista] as List<object>;
             }
-            // Procura a lista na memória global
             else if (_memoria.ContainsKey(nomeLista))
             {
                 listaAlvo = _memoria[nomeLista] as List<object>;
             }
         
-            // Validações
             if (listaAlvo == null)
                 throw new Exception($"L:{context.Start.Line}|A variável '{nomeLista}' não é uma lista válida ou não foi declarada.");
         
-            if (indice < 0 || indice >= listaAlvo.Count)
-                throw new Exception($"L:{context.Start.Line}|Índice '{indice}' inválido. A lista '{nomeLista}' tem tamanho {listaAlvo.Count}.");
+            if (indice < 0)
+                throw new Exception($"L:{context.Start.Line}|Índice '{indice}' inválido. Não é possível usar índices negativos em listas.");
         
-            // Faz a alteração
+            while (indice >= listaAlvo.Count)
+            {
+                listaAlvo.Add(null!);
+            }
+        
             listaAlvo[indice] = novoValor;
         
             return null!;
@@ -951,7 +912,6 @@ namespace Jogo.Core
 
     }
 
-    // Classe para carregar o valor do 'retorna' para fora da função
     public class ExcecaoRetorno : Exception
     {
         public object? Valor { get; }
