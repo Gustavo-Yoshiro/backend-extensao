@@ -9,6 +9,7 @@ namespace Jogo.Core
     {
         const int TEMPO_LINHA = 0;
         private const int DELAY_TRANSICAO_CENA = 1000;
+        private const int MAX_PROFUNDIDADE_RECURSAO = 100;
 
         private Dictionary<string, object> _memoria = new Dictionary<string, object>();
         private Dictionary<string, int> _linhasDeclaracaoGlobal = new Dictionary<string, int>();
@@ -508,7 +509,17 @@ namespace Jogo.Core
         
                 case "escanearArea":
                     if (args.Count != 0) throw new Exception($"L:{context.Start.Line}|'escanearArea()' não recebe parâmetros.");
-                    return _jogo.EscanearArea();
+
+                    List<string> inimigosDetectados = _jogo.EscanearArea();
+
+                    List<object> listaParaOJogador = new List<object>();
+
+                    foreach(string inimigo in inimigosDetectados)
+                    {
+                        listaParaOJogador.Add(inimigo);
+                    }
+                    
+                    return listaParaOJogador;
         
                 case "posicaoX":
                     if (args.Count != 0) { throw new Exception($"L:{context.Start.Line}|'posicaoX' não aceita argumentos.");}
@@ -674,6 +685,11 @@ namespace Jogo.Core
                         if (args.Count != parametrosEsperados.Count)
                             throw new Exception($"L:{context.Start.Line}|A função '{nomeCompleto}' espera {parametrosEsperados.Count} argumento(s), mas recebeu {args.Count}.");
 
+                        if (_escoposLocais.Count >= MAX_PROFUNDIDADE_RECURSAO)
+                        {
+                            throw new Exception($"L:{context.Start.Line}|Erro Crítico: A função '{nomeCompleto}' causou um loop de recursão infinito (limite de {MAX_PROFUNDIDADE_RECURSAO} chamadas excedido).");
+                        }
+
                         // 2. CRIA O ESCOPO LOCAL E INJETA ARGUMENTOS
                         var escopoLocal = new Dictionary<string, object>();
                         var escopoLinhas = new Dictionary<string, int>();
@@ -683,17 +699,10 @@ namespace Jogo.Core
                             string paramNome = parametrosEsperados[i].Nome;
                             string paramTipo = parametrosEsperados[i].Tipo;
 
-                            bool tipoInvalido = false;
-                            if (paramTipo == "int" && !(argumento is int)) tipoInvalido = true;
-                            if (paramTipo == "float" && !(argumento is float || argumento is int)) tipoInvalido = true; 
-                            if (paramTipo == "string" && !(argumento is string)) tipoInvalido = true;
-                            if (paramTipo == "bool" && !(argumento is bool)) tipoInvalido = true;
-
                             if (paramTipo == "vazio")
                                 throw new Exception($"L:{context.Start.Line}|O parâmetro '{paramNome}' não pode ser do tipo 'vazio'.");
 
-                            if (tipoInvalido)
-                                throw new Exception($"L:{context.Start.Line}|O argumento passado para '{paramNome}' deveria ser do tipo '{paramTipo}'.");
+                            VerificarTipo(paramTipo, argumento, paramNome, context.Start.Line);
 
                             escopoLocal[paramNome] = argumento;
                             escopoLinhas[paramNome] = parametrosEsperados[i].Linha;
@@ -733,14 +742,7 @@ namespace Jogo.Core
 
                         if (valorRetornado != null && tipoDeRetorno != "vazio")
                         {
-                            bool retornoInvalido = false;
-                            if (tipoDeRetorno == "int" && !(valorRetornado is int)) retornoInvalido = true;
-                            if (tipoDeRetorno == "float" && !(valorRetornado is float || valorRetornado is int)) retornoInvalido = true;
-                            if (tipoDeRetorno == "string" && !(valorRetornado is string)) retornoInvalido = true;
-                            if (tipoDeRetorno == "bool" && !(valorRetornado is bool)) retornoInvalido = true;
-
-                            if (retornoInvalido)
-                                throw new Exception($"L:{context.Start.Line}|A função '{nomeCompleto}' tentou retornar um tipo incorreto. Esperado: '{tipoDeRetorno}'.");
+                            VerificarTipo(tipoDeRetorno, valorRetornado, $"retorno_de_{nomeCompleto}", context.Start.Line);
                         }
 
                         Console.WriteLine($"[Chamada de Função] Executou função do player '{nomeCompleto}'. Retornou: {valorRetornado ?? "vazio"}");
@@ -837,9 +839,13 @@ namespace Jogo.Core
             else
                 throw new Exception($"L:{context.Start.Line}|A variável '{nomeVar}' não foi declarada.");
 
+            if (valorVar == null)
+            {
+                return null!;
+            }
+
             if (valorVar is string idInimigo)
             {
-
                 if (!_jogo.InimigoExiste(idInimigo))
                 {
                     return null!; 
