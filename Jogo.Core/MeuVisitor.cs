@@ -10,6 +10,7 @@ namespace Jogo.Core
         const int TEMPO_LINHA = 0;
         private const int DELAY_TRANSICAO_CENA = 1000;
         private const int MAX_PROFUNDIDADE_RECURSAO = 100;
+        private const int MAX_TAMANHO_LISTA = 5000;
 
         private Dictionary<string, object> _memoria = new Dictionary<string, object>();
         private Dictionary<string, int> _linhasDeclaracaoGlobal = new Dictionary<string, int>();
@@ -133,11 +134,8 @@ namespace Jogo.Core
 
                 if (context.SOMA() != null && (esquerdo is string || direito is string))
                 {
-                    string strEsq = esquerdo == null ? "Nulo" : (esquerdo is bool bEsq ? (bEsq ? "Verdadeiro" : "Falso") : esquerdo.ToString());
-                    string strDir = direito == null ? "Nulo" : (direito is bool bDir ? (bDir ? "Verdadeiro" : "Falso") : direito.ToString());
-
-                    if (esquerdo is float fEsq) strEsq = fEsq.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                    if (direito is float fDir) strDir = fDir.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    string strEsq = ConverterParaStringVisivel(esquerdo);
+                    string strDir = ConverterParaStringVisivel(direito);
 
                     return strEsq + strDir;
                 }
@@ -263,6 +261,8 @@ namespace Jogo.Core
 
                 foreach (var item in listaDeValores)
                 {
+                    if (item == null) continue;
+
                     bool itemValido = false;
                     switch (tipoEsperado)
                     {
@@ -480,11 +480,17 @@ namespace Jogo.Core
                 case "atacar":
                     if (args.Count != 2) { throw new Exception($"L:{context.Start.Line}| 'atacar' exige 2 argumentos."); }
 
-                    string alvoStr = args[0].ToString()!;
-                    string elemento = args[1].ToString()!;
+                    string alvoStr = args[0] == null ? "Nulo" : args[0].ToString()!;
 
-                    var elementosValidos = _ataques;
-                    if (!elementosValidos.Contains(elemento)) throw new Exception($"L:{context.Start.Line}| O ataque '{elemento}' é inválido ou você não possui.");
+                    if (args[1] == null) {
+                        throw new Exception($"L:{context.Start.Line}| O ataque passado não pode ser Nulo!");
+                    }
+                    
+                    string elemento = args[1].ToString()!;
+                    
+                    if (!_ataques.Contains(elemento)) {
+                        throw new Exception($"L:{context.Start.Line}| O ataque '{elemento}' é inválido ou você não o possui.");
+                    }
 
                     _jogo.Atacar(alvoStr, elemento);
                     return null!;
@@ -592,15 +598,8 @@ namespace Jogo.Core
                     if (args.Count != 1) 
                         throw new Exception($"L:{context.Start.Line}|A função 'escreva()' precisa receber exatamente 1 parâmetro.");
 
-                    object valorParaEscrever = args[0];
-                    string textoFinal = valorParaEscrever != null ? valorParaEscrever.ToString() : "";
-
-                    if (valorParaEscrever is bool booleano)
-                    {
-                        textoFinal = booleano ? "Verdadeiro" : "Falso";
-                    }
-
-                    textoFinal = textoFinal.Replace("\\n", "\n");
+                    string textoFinal = ConverterParaStringVisivel(args[0]).Replace("\\n", "\n");
+                    
                     _jogo.Escreva(textoFinal);
                     
                     return null!; 
@@ -865,6 +864,34 @@ namespace Jogo.Core
             throw new Exception($"L:{context.Start.Line}|Não é possível acessar atributos de '{nomeVar}', pois ele não é um Inimigo.");
         }
 
+        private string ConverterParaStringVisivel(object? valor)
+        {
+            if (valor == null) return "Nulo";
+            if (valor is bool b) return b ? "Verdadeiro" : "Falso";
+            if (valor is float f) return f.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+            if (valor is List<object> lista)
+            {
+                List<string> itensFormatados = new List<string>();
+                foreach (var item in lista)
+                {
+                    itensFormatados.Add(ConverterParaStringVisivel(item));
+                }
+                return "[" + string.Join(", ", itensFormatados) + "]";
+            }
+            
+            if (valor is string texto)
+            {
+                if (_jogo.InimigoExiste(texto))
+                {
+                    return _jogo.ObterNomeInimigo(texto);
+                }
+                return texto;
+            }
+            
+            return valor.ToString()!;
+        }
+
         private void DestacarDeclaracao(string nomeVar, string categoria)
         {
             if (_linhasDeclaracaoLocal.Count > 0 && _linhasDeclaracaoLocal.Peek().TryGetValue(nomeVar, out int linhaLocal))
@@ -905,7 +932,10 @@ namespace Jogo.Core
         
             if (indice < 0)
                 throw new Exception($"L:{context.Start.Line}|Índice '{indice}' inválido. Não é possível usar índices negativos em listas.");
-        
+
+            if (indice >= MAX_TAMANHO_LISTA)
+                throw new Exception($"L:{context.Start.Line}|Limite de memória excedido! As listas do jogo suportam no máximo {MAX_TAMANHO_LISTA} espaços.");
+
             while (indice >= listaAlvo.Count)
             {
                 listaAlvo.Add(null!);
