@@ -46,7 +46,8 @@ comandoRetorno: 'retorna' expressao?;
 chamadaFuncao: (objeto=ID '.')? funcao=ID '(' (expressao (',' expressao)*)? ')';
 
 // Expressões matemáticas, lógicas e estruturas de dados
-expressao: expressao (MULT | DIV | MOD) expressao
+expressao: NAO expressao
+         | expressao (MULT | DIV | MOD) expressao
          | expressao (SOMA | SUB) expressao
          | expressao ( MAIOR | MENOR | MAIOR_IGUAL | MENOR_IGUAL | IGUAL | DIFERENTE) expressao
          | expressao (E | OU) expressao
