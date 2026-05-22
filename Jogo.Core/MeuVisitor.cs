@@ -824,31 +824,41 @@ namespace Jogo.Core
 
         public override object VisitAcessoAtributo([NotNull] LinguagemParser.AcessoAtributoContext context)
         {
-            string nomeVar = context.ID(0).GetText();
-            string atributo = context.ID(1).GetText();
-            _jogo.DestacarLinhaAtual(context.Start.Line, "leitura_var");
-            System.Threading.Thread.Sleep(TEMPO_LINHA);
-            DestacarDeclaracao(nomeVar, "origem_var");
-            
-            object valorVar = null;
-            if (_escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeVar))
-                valorVar = _escoposLocais.Peek()[nomeVar];
-            else if (_memoria.ContainsKey(nomeVar))
-                valorVar = _memoria[nomeVar];
-            else
-                throw new Exception($"L:{context.Start.Line}|A variável '{nomeVar}' não foi declarada.");
+            object baseObj = null;
+            string nomeBase = "";
 
-            if (valorVar == null)
+            // 1. Identifica a base: É uma função ou uma variável?
+            if (context.chamadaFuncao() != null)
             {
-                return null!;
+                // Caso: funcao().atributo
+                baseObj = Visit(context.chamadaFuncao());
+                nomeBase = context.chamadaFuncao().GetText(); // Salva o nome da função apenas para caso de erro
+            }
+            else if (context.ID().Length == 2)
+            {
+                // Caso: variavel.atributo
+                nomeBase = context.ID(0).GetText();
+                _jogo.DestacarLinhaAtual(context.Start.Line, "leitura_var");
+                System.Threading.Thread.Sleep(TEMPO_LINHA);
+                DestacarDeclaracao(nomeBase, "origem_var");
+                
+                if (_escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeBase))
+                    baseObj = _escoposLocais.Peek()[nomeBase];
+                else if (_memoria.ContainsKey(nomeBase))
+                    baseObj = _memoria[nomeBase];
+                else
+                    throw new Exception($"L:{context.Start.Line}|A variável '{nomeBase}' não foi declarada.");
             }
 
-            if (valorVar is string idInimigo)
+            // 2. Extrai o nome do atributo (na nossa regra, o atributo é SEMPRE o último ID)
+            string atributo = context.ID(context.ID().Length - 1).GetText();
+
+            if (baseObj == null) return null!;
+
+            // 3. Lógica de acesso (já configurada para Inimigos)
+            if (baseObj is string idInimigo)
             {
-                if (!_jogo.InimigoExiste(idInimigo))
-                {
-                    return null!; 
-                }
+                if (!_jogo.InimigoExiste(idInimigo)) return null!;
 
                 switch (atributo)
                 {
@@ -861,7 +871,7 @@ namespace Jogo.Core
                 }
             }
 
-            throw new Exception($"L:{context.Start.Line}|Não é possível acessar atributos de '{nomeVar}', pois ele não é um Inimigo.");
+            throw new Exception($"L:{context.Start.Line}|Não é possível acessar atributos de '{nomeBase}', pois ele não é um Inimigo.");
         }
 
         private string ConverterParaStringVisivel(object? valor)
