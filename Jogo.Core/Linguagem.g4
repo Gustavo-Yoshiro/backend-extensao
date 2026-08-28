@@ -26,13 +26,13 @@ atribuicao: ID '=' expressao;
 estruturaEnquanto: ENQUANTO '(' expressao ')' '{' comando+ '}';
 
 // O bloco 'senão'
-estruturaSenao: 'senao' '{' comando+;
+estruturaSenao: 'senao' '{' comando+ '}';
 
 // O bloco 'senão se'
-estruturaSenaoSe: 'senao' 'se' '(' expressao ')' '{' comando+;
+estruturaSenaoSe: 'senao' 'se' '(' expressao ')' '{' comando+ '}';
 
 // Controle de fluxo principal
-estruturaSe: SE '(' expressao ')' '{' comando+ estruturaSenaoSe* estruturaSenao? '}';
+estruturaSe: SE '(' expressao ')' '{' comando+ '}' estruturaSenaoSe* estruturaSenao?;
 
 parametro: TIPO ID;
 
