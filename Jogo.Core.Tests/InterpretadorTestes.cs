@@ -181,9 +181,9 @@ namespace Jogo.Core.Tests
             var visitor = new MeuVisitor(jogoMock);
 
             string codigo = "int vidas = 1\n" +
-                            "se (vidas == 1):\n" +
+                            "se (vidas == 1){\n" +
                             "    mover(Cima)"+
-                            "fim se"; 
+                            "}"; 
             Executar(codigo, visitor);
 
             jogoMock.Received(1).Mover("Cima");
@@ -196,9 +196,9 @@ namespace Jogo.Core.Tests
             var visitor = new MeuVisitor(jogoMock);
 
             string codigo = "int vidas = 0\n" +
-                            "se (vidas == 1):\n" +
+                            "se (vidas == 1){\n" +
                             "    mover(Cima)" +
-                            "fim se"; 
+                            "}"; 
             
             Executar(codigo, visitor);
 
@@ -215,10 +215,10 @@ namespace Jogo.Core.Tests
 
             // O jogador quer dar 3 passos para o Cima
             string codigo = "int passos = 0\n" +
-                            "enquanto (passos < 3):\n" +
+                            "enquanto (passos < 3){\n" +
                             "    mover(Cima)\n" +
                             "    passos = passos + 1\n" +
-                            "fim enquanto";
+                            "}";
             
             Executar(codigo, visitor);
 
@@ -233,10 +233,10 @@ namespace Jogo.Core.Tests
             var visitor = new MeuVisitor(jogoMock);
 
             string codigo = "int passos = 5\n" +
-                            "enquanto (passos < 3):\n" +
+                            "enquanto (passos < 3){\n" +
                             "    mover(Baixo)\n" +
                             "    passos = passos + 1\n" +
-                            "fim enquanto"; 
+                            "}"; 
             
             Executar(codigo, visitor);
 
@@ -263,11 +263,11 @@ namespace Jogo.Core.Tests
             var visitor = new MeuVisitor(jogoMock);
 
             string codigo = "int vidas = 1\n" +
-                            "se (vidas == 1):\n" +
+                            "se (vidas == 1){\n" +
                             "    mover(Cima)\n" +
-                            "senao:\n" +
+                            "senao{\n" +
                             "    mover(Baixo)\n" +
-                            "fim se"; 
+                            "}"; 
             
             Executar(codigo, visitor);
 
@@ -283,14 +283,14 @@ namespace Jogo.Core.Tests
             var visitor = new MeuVisitor(jogoMock);
 
             string codigo = "int i = 0\n" +
-                            "enquanto (i < 10):\n" +
-                            "    se (i < 5):\n" +
+                            "enquanto (i < 10){\n" +
+                            "    se (i < 5){\n" +
                             "        mover(Cima)\n" +
-                            "    senao:\n" +
+                            "    senao{\n" +
                             "        mover(Baixo)\n" +
-                            "    fim se\n" +
+                            "    }\n" +
                             "    i = i + 1 \n" +
-                            "fim enquanto";
+                            "}";
             
             Executar(codigo, visitor);
 
@@ -371,15 +371,15 @@ namespace Jogo.Core.Tests
 
             string codigo = 
                 "int vida = 5\n" +
-                "se (vida > 10):\n" +
+                "se (vida > 10){\n" +
                 "    mover(\"Cima\")\n" +
-                "senao se (vida == 8):\n" +
+                "senao se (vida == 8){\n" +
                 "    mover(\"Baixo\")\n" +
-                "senao se (vida == 5):\n" +
+                "senao se (vida == 5){\n" +
                 "    mover(\"Direita\")\n" +
-                "senao:\n" +
+                "senao{\n" +
                 "    mover(\"Esquerda\")\n" +
-                "fim se"; 
+                "}"; 
             
             Executar(codigo, visitor);
 
@@ -398,16 +398,16 @@ namespace Jogo.Core.Tests
 
             string codigo = 
                 "int vida = 10\n" +
-                "vazio BuffTemporario(int vida):\n" +
+                "vazio BuffTemporario(int vida){\n" +
                 "    vida = 999\n" + 
                 "    retorna\n" +  
-                "fim funcao\n" +
+                "}\n" +
                 "\n" +
                 "BuffTemporario(50)\n" +
                 "\n" +
-                "se (vida == 10):\n" +
+                "se (vida == 10){\n" +
                 "    mover(\"Cima\")\n" + 
-                "fim se";
+                "}";
 
             Executar(codigo, visitor);
 
@@ -424,12 +424,12 @@ namespace Jogo.Core.Tests
             var visitor = new MeuVisitor(jogoMock);
 
             string codigo = 
-                "string EscolherAtaque(int hpInimigo):\n" +
-                "    se (hpInimigo > 50):\n" +
+                "string EscolherAtaque(int hpInimigo){\n" +
+                "    se (hpInimigo > 50){\n" +
                 "        retorna \"ExplosaoFogo\"\n" +
-                "    fim se\n" +
+                "    }\n" +
                 "    retorna \"Gelo\"\n" +
-                "fim funcao\n" +
+                "}\n" +
                 "\n" +
                 "atacar(\"Orc\", EscolherAtaque(100))\n" +
                 "\n" +
@@ -465,9 +465,9 @@ namespace Jogo.Core.Tests
 
             // 2. O Script do Jogador
             // Como !Falso vira Verdadeiro, ele DEVE entrar no 'se' e tentar mover.
-            string codigo = "se(!Falso):\n" +
+            string codigo = "se(!Falso){\n" +
                             "    mover(Cima)\n" +
-                            "fim se"; 
+                            "}"; 
 
             // 3. Roda o interpretador
             Executar(codigo, visitor);
@@ -485,9 +485,9 @@ namespace Jogo.Core.Tests
 
             // 2. O Script do Jogador
             // Como !Verdadeiro vira Falso, a porta tranca e ele NÃO deve entrar no 'se'.
-            string codigo = "se(!Verdadeiro):\n" +
+            string codigo = "se(!Verdadeiro){\n" +
                             "    mover(Cima)\n" +
-                            "fim se"; 
+                            "}"; 
 
             // 3. Roda o interpretador
             Executar(codigo, visitor);
@@ -506,9 +506,9 @@ namespace Jogo.Core.Tests
 
             // O vetor tem [10, 20, 30]. O índice 1 é o número 20.
             string codigo = "int vetor = [10, 20, 30]\n" +
-                            "se (vetor[1] == 20):\n" +
+                            "se (vetor[1] == 20){\n" +
                             "    mover(Cima)\n" +
-                            "fim se"; 
+                            "}"; 
 
             Executar(codigo, visitor);
 
@@ -524,9 +524,9 @@ namespace Jogo.Core.Tests
             // Soma vetor[0] (que é 2) com vetor[1] (que é 3)
             string codigo = "int vetor = [2, 3]\n" +
                             "int soma = vetor[0] + vetor[1]\n" +
-                            "se (soma == 5):\n" +
+                            "se (soma == 5){\n" +
                             "    mover(Direita)\n" +
-                            "fim se"; 
+                            "}"; 
 
             Executar(codigo, visitor);
 
@@ -596,8 +596,10 @@ namespace Jogo.Core.Tests
             string codigo = "Inimigo alvo = \"Vampiro\"\n" +
                             "string n = alvo.nome\n" +
                             "se (n == \"Vampiro\":\n" +
+                            "float v = alvo.velocidade\n" +
+                            "se (n == \"Vampiro\" e v > 10.0){\n" +
                             "    mover(Cima)\n" +
-                            "fim se"; 
+                            "}"; 
 
             Executar(codigo, visitor);
 
@@ -633,9 +635,9 @@ namespace Jogo.Core.Tests
 
             // O código verifica se a vida é diferente de 100 e se o nome NÃO é Orc
             string codigo = "Inimigo alvo = \"SlimeDeFogo\"\n" +
-                            "se (alvo.vida != 100 e alvo.nome != \"Orc\"):\n" +
+                            "se (alvo.vida != 100 e alvo.nome != \"Orc\"){\n" +
                             "    escreva(\"Condicoes funcionaram!\")\n" +
-                            "fim se"; 
+                            "}"; 
 
             Executar(codigo, visitor);
 
@@ -663,9 +665,9 @@ namespace Jogo.Core.Tests
 
             // Gera o número e usa as condicionais para validar se está no limite correto
             string codigo = "float num = aleatorio()\n" +
-                            "se (num >= 0.0 e num <= 1.0):\n" +
+                            "se (num >= 0.0 e num <= 1.0){\n" +
                             "    escreva(\"Numero dentro do limite\")\n" +
-                            "fim se"; 
+                            "}"; 
 
             Executar(codigo, visitor);
 
@@ -712,39 +714,39 @@ namespace Jogo.Core.Tests
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
-            string codigo = "vazio funcaolegal():\n" +
+            string codigo = "vazio funcaolegal(){\n" +
                             "   int j = 0\n" +
-                            "   enquanto (j < 10):\n" +
+                            "   enquanto (j < 10){\n" +
                             "       Ataque atk = Fogo\n" +
-                            "       se (j % 2 == 1):\n" +
+                            "       se (j % 2 == 1){\n" +
                             "           atk = Fogo\n" +
                             "           j = j + 1\n" +
-                            "       senao:\n" +
+                            "       senao{\n" +
                             "           atk = Gelo\n" +
                             "           j = j + 1\n" +
-                            "       fim se\n" +
-                            "   fim enquanto\n" +
+                            "       }\n" +
+                            "   }\n" +
                             "   escreva(atk)\n" +
-                            "fim funcao\n" +
+                            "}\n" +
                             "funcaolegal()\n" +
 
                         "int j = 0\n"+
-                        "enquanto(j < 4):\n"+
-		                "   se(Verdadeiro):\n"+
+                        "enquanto(j < 4){\n"+
+		                "   se(Verdadeiro){\n"+
 		                "   	int proxX = 0\n"+
 		                "   	int proxY = 0\n"+
-		                "   	se(Falso):\n"+
+		                "   	se(Falso){\n"+
 		                "   		proxY = j - 1\n"+
-		                "   	senao se(Falso):\n"+
+		                "   	senao se(Falso){\n"+
 		                "   		proxY = j + 1\n"+
-		                "   	senao se(Falso):\n"+
+		                "   	senao se(Falso){\n"+
 		                "   		proxX = j + 1\n"+
-		                "   	senao se(Verdadeiro):\n"+
+		                "   	senao se(Verdadeiro){\n"+
 		                "   		proxX = j - 1\n"+
-		                "       fim se\n" +
-		                "   fim se\n" +
+		                "       }\n" +
+		                "   }\n" +
 		                "   j = j + 1\n" +
-		                "fim enquanto\n";
+		                "}\n";
 
 
             

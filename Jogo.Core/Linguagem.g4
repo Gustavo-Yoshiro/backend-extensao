@@ -23,21 +23,21 @@ declaracaoVariavel: TIPO ID '=' expressao;
 atribuicao: ID '=' expressao;
 
 // Controle de fluxo: enquanto(condição):
-estruturaEnquanto: ENQUANTO '(' expressao ')' ':' comando+ 'fim' 'enquanto';
+estruturaEnquanto: ENQUANTO '(' expressao ')' '{' comando+ '}';
 
 // O bloco 'senão'
-estruturaSenao: 'senao' ':' comando+;
+estruturaSenao: 'senao' '{' comando+;
 
 // O bloco 'senão se'
-estruturaSenaoSe: 'senao' 'se' '(' expressao ')' ':' comando+;
+estruturaSenaoSe: 'senao' 'se' '(' expressao ')' '{' comando+;
 
 // Controle de fluxo principal
-estruturaSe: SE '(' expressao ')' ':' comando+ estruturaSenaoSe* estruturaSenao? 'fim' 'se';
+estruturaSe: SE '(' expressao ')' '{' comando+ estruturaSenaoSe* estruturaSenao? '}';
 
 parametro: TIPO ID;
 
 // Exemplo: int curar(int forca, string alvo): ... fim funcao
-declaracaoFuncao: TIPO ID '(' (parametro (',' parametro)*)? ')' ':' comando+ 'fim' 'funcao';
+declaracaoFuncao: TIPO ID '(' (parametro (',' parametro)*)? ')' '{' comando+ '}';
 
 // Regra de retorno
 comandoRetorno: 'retorna' expressao?;
