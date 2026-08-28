@@ -516,7 +516,7 @@ namespace Jogo.Core
                 case "escanearArea":
                     if (args.Count != 0) throw new Exception($"L:{context.Start.Line}|'escanearArea()' não recebe parâmetros.");
 
-                    List<string> inimigosDetectados = _jogo.EscanearArea();
+                    List<string> inimigosDetectados = _jogo.EscanearArea() ?? new List<string>();
 
                     List<object> listaParaOJogador = new List<object>();
 
