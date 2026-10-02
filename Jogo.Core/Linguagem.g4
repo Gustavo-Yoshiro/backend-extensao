@@ -107,8 +107,8 @@ NAO: '!';
 ID: [a-zA-Z_][a-zA-Z0-9_]*;
 
 // Tipos numéricos e texto
-NUMERO_INT: [0-9]+;
-NUMERO_FLOAT: [0-9]+ '.' [0-9]+;
+NUMERO_INT: '-'?[0-9]+;
+NUMERO_FLOAT: '-'?[0-9]+ '.' [0-9]+;
 STRING_LIT: '"' ~["]* '"';
 
 // Ignorar espaços, tabs e quebras de linha na hora de ler o código

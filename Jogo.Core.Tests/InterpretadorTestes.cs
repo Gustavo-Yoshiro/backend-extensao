@@ -265,7 +265,7 @@ namespace Jogo.Core.Tests
             string codigo = "int vidas = 1\n" +
                             "se (vidas == 1){\n" +
                             "    mover(Cima)\n" +
-                            "senao{\n" +
+                            "}senao{\n" +
                             "    mover(Baixo)\n" +
                             "}"; 
             
@@ -286,7 +286,7 @@ namespace Jogo.Core.Tests
                             "enquanto (i < 10){\n" +
                             "    se (i < 5){\n" +
                             "        mover(Cima)\n" +
-                            "    senao{\n" +
+                            "    }senao{\n" +
                             "        mover(Baixo)\n" +
                             "    }\n" +
                             "    i = i + 1 \n" +
@@ -373,11 +373,11 @@ namespace Jogo.Core.Tests
                 "int vida = 5\n" +
                 "se (vida > 10){\n" +
                 "    mover(\"Cima\")\n" +
-                "senao se (vida == 8){\n" +
+                "}senao se (vida == 8){\n" +
                 "    mover(\"Baixo\")\n" +
-                "senao se (vida == 5){\n" +
+                "}senao se (vida == 5){\n" +
                 "    mover(\"Direita\")\n" +
-                "senao{\n" +
+                "}senao{\n" +
                 "    mover(\"Esquerda\")\n" +
                 "}"; 
             
@@ -713,44 +713,19 @@ namespace Jogo.Core.Tests
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
-            string codigo = "vazio funcaolegal(){\n" +
-                            "   int j = 0\n" +
-                            "   enquanto (j < 10){\n" +
-                            "       Ataque atk = Fogo\n" +
-                            "       se (j % 2 == 1){\n" +
-                            "           atk = Fogo\n" +
-                            "           j = j + 1\n" +
-                            "       senao{\n" +
-                            "           atk = Gelo\n" +
-                            "           j = j + 1\n" +
-                            "       }\n" +
-                            "   }\n" +
-                            "   escreva(atk)\n" +
-                            "}\n" +
-                            "funcaolegal()\n" +
-
-                        "int j = 0\n"+
-                        "enquanto(j < 4){\n"+
-		                "   se(Verdadeiro){\n"+
-		                "   	int proxX = 0\n"+
-		                "   	int proxY = 0\n"+
-		                "   	se(Falso){\n"+
-		                "   		proxY = j - 1\n"+
-		                "   	senao se(Falso){\n"+
-		                "   		proxY = j + 1\n"+
-		                "   	senao se(Falso){\n"+
-		                "   		proxX = j + 1\n"+
-		                "   	senao se(Verdadeiro){\n"+
-		                "   		proxX = j - 1\n"+
-		                "       }\n" +
-		                "   }\n" +
-		                "   j = j + 1\n" +
+            string codigo = 
+                        "int i = -100\n"+
+		                "i = i - 1\n" +
+                        "se(i == -101){\n"+
+		                " escreva(\"Fogo\")" +
+		                "}\n" +
+		                "int vetor = [-999999]\n" +
+                        "se(vetor[0] == -999999){\n"+
+		                " escreva(\"Fogo\")" +
 		                "}\n";
 
-
-            
             Executar(codigo, visitor);
-            jogoMock.Received(1).Escreva("Fogo");
+            jogoMock.Received(2).Escreva("Fogo");
         }
 
     }
