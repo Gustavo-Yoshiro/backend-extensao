@@ -8,6 +8,7 @@ programa: comando+ EOF;
 
 // Os tipos de comandos que o jogador pode digitar
 comando: declaracaoVariavel
+       | declaracaoLista
        | atribuicao
        | estruturaSe
        | estruturaEnquanto
@@ -61,10 +62,10 @@ expressao: NAO expressao
          | '(' expressao ')'
          | lista
          | acessoLista
-         | acessoAtributo
-         | NAO expressao;
+         | acessoAtributo;
 
-// Listas e acesso por índice (ex: vetor = [1, 2, 3] e vetor[0])
+// Vetores e acesso por índice
+declaracaoLista: 'Vetor' 'de' TIPO ID '=' lista;
 lista: '[' (expressao (',' expressao)*)? ']';
 acessoLista: ID '[' expressao ']';
 atribuicaoLista: ID '[' expressao ']' '=' expressao;

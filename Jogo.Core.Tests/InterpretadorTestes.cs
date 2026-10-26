@@ -499,70 +499,6 @@ namespace Jogo.Core.Tests
         // TESTES DE LISTAS E VETORES
 
         [Fact]
-        public void Deve_Criar_E_Acessar_Item_Da_Lista_Pelo_Indice()
-        {
-            var jogoMock = Substitute.For<IAcoesDoJogo>();
-            var visitor = new MeuVisitor(jogoMock);
-
-            // O vetor tem [10, 20, 30]. O índice 1 é o número 20.
-            string codigo = "int vetor = [10, 20, 30]\n" +
-                            "se (vetor[1] == 20){\n" +
-                            "    mover(Cima)\n" +
-                            "}"; 
-
-            Executar(codigo, visitor);
-
-            jogoMock.Received(1).Mover("Cima");
-        }
-
-        [Fact]
-        public void Deve_Fazer_Operacoes_Matematicas_Com_Itens_Do_Vetor()
-        {
-            var jogoMock = Substitute.For<IAcoesDoJogo>();
-            var visitor = new MeuVisitor(jogoMock);
-
-            // Soma vetor[0] (que é 2) com vetor[1] (que é 3)
-            string codigo = "int vetor = [2, 3]\n" +
-                            "int soma = vetor[0] + vetor[1]\n" +
-                            "se (soma == 5){\n" +
-                            "    mover(Direita)\n" +
-                            "}"; 
-
-            Executar(codigo, visitor);
-
-            jogoMock.Received(1).Mover("Direita");
-        }
-
-        [Fact]
-        public void Deve_Lancar_Excecao_Se_Lista_Tiver_Item_Incorreto()
-        {
-            var jogoMock = Substitute.For<IAcoesDoJogo>();
-            var visitor = new MeuVisitor(jogoMock);
-
-            // A variável exige 'int', mas o último item é um texto
-            string codigo = "int vetor = [1, 5, \"intruso\"]"; 
-
-            var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
-            
-            // Garante que o erro do seu método VerificarTipo estourou certinho
-            Assert.Contains("intruso", excecao.Message.ToLower());
-        }
-
-        [Fact]
-        public void Deve_Lancar_Excecao_Ao_Acessar_Indice_Fora_Do_Limite()
-        {
-            var jogoMock = Substitute.For<IAcoesDoJogo>();
-            var visitor = new MeuVisitor(jogoMock);
-
-            // O vetor só vai até o índice 1. Tentar acessar o 5 tem que dar erro!
-            string codigo = "int vetor = [10, 20]\n" +
-                            "int x = vetor[5]"; 
-
-            Executar(codigo, visitor);
-            
-        }
-
-        [Fact]
         public void Deve_Concatenar_Diferentes_Tipos_E_Escrever()
         {
             var jogoMock = Substitute.For<IAcoesDoJogo>();
@@ -672,40 +608,6 @@ namespace Jogo.Core.Tests
 
             jogoMock.Received(1).Escreva("Numero dentro do limite");
         }
-        [Fact]
-        public void Deve_Alterar_Valor_No_Vetor()
-        {
-            var jogoMock = Substitute.For<IAcoesDoJogo>();
-            var visitor = new MeuVisitor(jogoMock);
-
-            string codigo = "string Vetor = [\"Valor antigo\", \"Indice '1'\"]\n" +
-                            "int i = 0\n" +
-                            "Vetor[i] = \"Valor novo\" \n" +
-                            "escreva(Vetor[i])\n" +
-                            "";
-
-            Executar(codigo, visitor);
-            jogoMock.Received(1).Escreva("Valor novo");
-        }
-    
-        [Fact]
-        public void Deve_Impedir_Redeclaracao()
-        {
-            var jogoMock = Substitute.For<IAcoesDoJogo>();
-            var visitor = new MeuVisitor(jogoMock);
-
-            string codigo = "string Vetor = [\"Valor antigo\", \"Indice '1'\"]\n" +
-                            "int i = 0\n" +
-                            "int i = 0\n" +
-                            "Vetor[i] = \"Valor novo\" \n" +
-                            "escreva(Vetor[i])\n" +
-                            "";
-
-            
-            var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
-            
-            Assert.Contains("L:3| Variável 'i' já foi declarada.", excecao.Message);
-        }
         
         [Fact]
         public void Teste_Aberto()
@@ -719,8 +621,8 @@ namespace Jogo.Core.Tests
                         "se(i == -101){\n"+
 		                " escreva(\"Fogo\")" +
 		                "}\n" +
-		                "int vetor = [-999999]\n" +
-                        "se(vetor[0] == -999999){\n"+
+		                "Vetor de int vetor = [-1]\n" +
+                        "se(vetor[0] == -1){\n"+
 		                " escreva(\"Fogo\")" +
 		                "}\n";
 

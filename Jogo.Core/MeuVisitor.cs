@@ -5,6 +5,14 @@ using Microsoft.VisualBasic;
 
 namespace Jogo.Core
 {
+    public class Vetor : List<object>
+    {
+        public string TipoElemento { get; }
+        public Vetor(string tipoElemento, IEnumerable<object> itens) : base(itens)
+        {
+            TipoElemento = tipoElemento;
+        }
+    }
     public class MeuVisitor : LinguagemBaseVisitor<object>
     {
         const int TEMPO_LINHA = 0;
@@ -21,7 +29,7 @@ namespace Jogo.Core
         private Dictionary<string, LinguagemParser.DeclaracaoFuncaoContext> _funcoesJogador = new Dictionary<string, LinguagemParser.DeclaracaoFuncaoContext>();
         private readonly IAcoesDoJogo _jogo;
 
-        private HashSet<LinguagemParser.DeclaracaoVariavelContext> _declaracoesRegistradas = new HashSet<LinguagemParser.DeclaracaoVariavelContext>();
+        private HashSet<Antlr4.Runtime.ParserRuleContext> _declaracoesRegistradas = new HashSet<Antlr4.Runtime.ParserRuleContext>();
 
         // ==========================================
         // CATEGORIAS DE "ENUMS" E FUNÇÕES
@@ -37,7 +45,7 @@ namespace Jogo.Core
             "mover", "podeMover", "atacar", "tempo", "vidaAtual", 
             "inimigoMaisProximo", "escanearArea", "posicaoX", "posicaoY", 
             "tesouroX", "tesouroY", "escapar", "arena", "comprar", 
-            "cinto", "mochila", "venderTudo", "max", "min", "tamanho", "trunca", "aleatorio"
+            "cinto", "mochila", "venderTudo", "max", "min", "tamanho", "trunca", "aleatorio", "Vetor"
         };
         
         private HashSet<string> _palavrasReservadas;
@@ -209,6 +217,9 @@ namespace Jogo.Core
             }
             
             object valorResolvido = Visit(context.expressao());
+            
+            if (valorResolvido is List<object>)
+                throw new Exception($"L:{context.Start.Line}|Para criar uma lista, use: Vetor de {tipoDeclarado} {nomeDaVariavel} = [...]");
         
             VerificarTipo(tipoDeclarado, valorResolvido, nomeDaVariavel, context.Start.Line);
 
@@ -319,6 +330,15 @@ namespace Jogo.Core
             }
 
             object valorAntigo = ehLocal ? _escoposLocais.Peek()[nomeDaVariavel] : _memoria[nomeDaVariavel];
+            if (valorAntigo is Vetor vetorAntigo)
+            {
+                if (novoValor is not List<object> novaLista)
+                    throw new Exception($"L:{context.Start.Line}|'{nomeDaVariavel}' é um vetor e só pode receber outra lista.");
+
+                VerificarTipo(vetorAntigo.TipoElemento, novaLista, nomeDaVariavel, context.Start.Line);
+                novoValor = new Vetor(vetorAntigo.TipoElemento, novaLista);
+            }
+
             Type tipoOriginal = valorAntigo.GetType();
             Type tipoNovo = novoValor.GetType();
 
@@ -525,7 +545,7 @@ namespace Jogo.Core
                         listaParaOJogador.Add(inimigo);
                     }
                     
-                    return listaParaOJogador;
+                    return new Vetor("Inimigo", listaParaOJogador);
         
                 case "posicaoX":
                     if (args.Count != 0) { throw new Exception($"L:{context.Start.Line}|'posicaoX' não aceita argumentos.");}
@@ -775,7 +795,9 @@ namespace Jogo.Core
        public override object VisitLista([NotNull] LinguagemParser.ListaContext context)
         {
             var lista = new List<object>(); 
-            
+            if (lista.Count > MAX_TAMANHO_LISTA)
+                throw new Exception($"L:{context.Start.Line}|Limite de memória excedido! As listas do jogo suportam no máximo {MAX_TAMANHO_LISTA} espaços.");
+
             if (context.expressao() != null)
             {
                 foreach (var exp in context.expressao())
@@ -824,7 +846,7 @@ namespace Jogo.Core
 
         public override object VisitAcessoAtributo([NotNull] LinguagemParser.AcessoAtributoContext context)
         {
-            object baseObj = null;
+            object baseObj = null!;
             string nomeBase = "";
 
             // 1. Identifica a base: É uma função ou uma variável?
@@ -919,43 +941,117 @@ namespace Jogo.Core
         
         public override object VisitAtribuicaoLista([NotNull] LinguagemParser.AtribuicaoListaContext context)
         {
+            int linha = context.Start.Line;
             string nomeLista = context.ID().GetText();
-            
+        
             object objIndice = Visit(context.expressao(0));
-            int indice = Convert.ToInt32(objIndice); 
-            
-            object novoValor = Visit(context.expressao(1)); 
+            if (objIndice is not int indice)
+                throw new Exception($"L:{linha}|O índice da lista deve ser um número inteiro.");
         
+            object novoValor = Visit(context.expressao(1));
+        
+            // Localiza a lista
             List<object>? listaAlvo = null;
-        
             if (_escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeLista))
-            {
                 listaAlvo = _escoposLocais.Peek()[nomeLista] as List<object>;
-            }
             else if (_memoria.ContainsKey(nomeLista))
-            {
                 listaAlvo = _memoria[nomeLista] as List<object>;
-            }
         
             if (listaAlvo == null)
-                throw new Exception($"L:{context.Start.Line}|A variável '{nomeLista}' não é uma lista válida ou não foi declarada.");
+                throw new Exception($"L:{linha}|A variável '{nomeLista}' não é uma lista válida ou não foi declarada.");
         
+            // Valida índice
             if (indice < 0)
-                throw new Exception($"L:{context.Start.Line}|Índice '{indice}' inválido. Não é possível usar índices negativos em listas.");
-
+                throw new Exception($"L:{linha}|Índice '{indice}' inválido. Não é possível usar índices negativos em listas.");
+        
             if (indice >= MAX_TAMANHO_LISTA)
-                throw new Exception($"L:{context.Start.Line}|Limite de memória excedido! As listas do jogo suportam no máximo {MAX_TAMANHO_LISTA} espaços.");
-
-            while (indice >= listaAlvo.Count)
+                throw new Exception($"L:{linha}|Limite de memória excedido! As listas do jogo suportam no máximo {MAX_TAMANHO_LISTA} espaços.");
+        
+            // Valida tipo do valor
+            if (novoValor is List<object>)
+                throw new Exception($"L:{linha}|Não é possível guardar uma lista dentro de um vetor.");
+        
+            if (listaAlvo is Vetor vetor)
             {
-                listaAlvo.Add(null!);
+                VerificarTipo(vetor.TipoElemento, novoValor, $"{nomeLista}[{indice}]", linha);
+        
+                if (vetor.TipoElemento == "float" && novoValor is int n)
+                    novoValor = (float)n;
             }
         
+            // 4. Grava
+            while (indice >= listaAlvo.Count)
+                listaAlvo.Add(null!);
+        
             listaAlvo[indice] = novoValor;
+            return null!;
+        }
+        public override object VisitDeclaracaoLista([NotNull] LinguagemParser.DeclaracaoListaContext context)
+        {
+            _jogo.DestacarLinhaAtual(context.Start.Line, "declaracao_var");
+            System.Threading.Thread.Sleep(TEMPO_LINHA);
+        
+            string tipo = context.TIPO().GetText();
+            string nome = context.ID().GetText();
+            int linha = context.Start.Line;
+        
+            if (tipo == "vazio")
+                throw new Exception($"L:{linha}|Não é possível criar um Vetor do tipo 'vazio'.");
+        
+            if (_palavrasReservadas.Contains(nome))
+                throw new Exception($"L:{linha}|'{nome}' é uma função ou palavra reservada do jogo e não pode ser usada como nome de variável.");
+        
+            object valor = Visit(context.lista());
+        
+            // Validação
+            VerificarTipo(tipo, valor, nome, linha);
+
+            var itens = (List<object>)valor;
+            if (tipo == "float")
+                for (int i = 0; i < itens.Count; i++)
+                    if (itens[i] is int n) itens[i] = (float)n;
+
+            valor = new Vetor(tipo, itens);
+        
+            if (_escoposLocais.Count > 0)
+            {
+                var escopoAtual = _escoposLocais.Peek();
+        
+                if (escopoAtual.ContainsKey(nome))
+                {
+                    if (_declaracoesRegistradas.Contains(context))
+                    {
+                        escopoAtual[nome] = valor;
+                        return null!;
+                    }
+                    throw new Exception($"L:{linha}| Variável '{nome}' já foi declarada.");
+                }
+        
+                escopoAtual[nome] = valor;
+                _linhasDeclaracaoLocal.Peek()[nome] = linha;
+                _declaracoesRegistradas.Add(context);
+            }
+            else
+            {
+                if (_memoria.ContainsKey(nome))
+                {
+                    if (_declaracoesRegistradas.Contains(context))
+                    {
+                        _memoria[nome] = valor;
+                        return null!;
+                    }
+                    throw new Exception($"L:{linha}| Variável '{nome}' já foi declarada.");
+                }
+        
+                _memoria[nome] = valor;
+                _linhasDeclaracaoGlobal[nome] = linha;
+                _declaracoesRegistradas.Add(context);
+            }
         
             return null!;
         }
-
+        
+   
     }
 
     public class ExcecaoRetorno : Exception
@@ -963,4 +1059,5 @@ namespace Jogo.Core
         public object? Valor { get; }
         public ExcecaoRetorno(object? valor) { Valor = valor; }
     }
+
 }
