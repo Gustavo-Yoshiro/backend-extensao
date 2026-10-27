@@ -40,6 +40,8 @@ namespace Jogo.Core
         private HashSet<string> _inimigos = new HashSet<string> { "Goblin", "Esqueleto", "SlimeDeFogo", "SlimeDeGelo", "Lobisomem", "Orc", "Fantasma", "Vampiro" };
         private HashSet<string> _arenas = new HashSet<string> { "Campos", "Floresta", "Labirinto" };
         private HashSet<string> _itens = new HashSet<string> { "PocaoDeVida" };
+        private readonly HashSet<string> _tiposValidos = new HashSet<string>
+        { "int", "float", "bool", "string", "Inimigo", "Arena", "Ataque", "Direcao" };
 
         private HashSet<string> _funcoesEObjetosNativos = new HashSet<string> { 
             "mover", "podeMover", "atacar", "tempo", "vidaAtual", 
@@ -104,6 +106,14 @@ namespace Jogo.Core
                 object valor = Visit(context.expressao(0)); 
                 if (valor is bool condicaoBooleana) return !condicaoBooleana; 
                 throw new Exception($"L:{context.Start.Line}|O operador '!' só pode ser usado com Verdadeiro ou Falso.");
+            }
+
+            if (context.SUB() != null && context.expressao().Length == 1)
+            {
+                object valorNeg = Visit(context.expressao(0));
+                if (valorNeg is int i) return -i;
+                if (valorNeg is float f) return -f;
+                throw new Exception($"L:{context.Start.Line}|O operador '-' só pode ser usado com números.");
             }
             
             if (context.lista() != null) return Visit(context.lista());
@@ -216,6 +226,9 @@ namespace Jogo.Core
                 throw new Exception($"L:{context.Start.Line}|'{nomeDaVariavel}' é uma função ou palavra reservada do jogo e não pode ser usada como nome de variável.");
             }
             
+            if (_funcoesJogador.ContainsKey(nomeDaVariavel))
+                throw new Exception($"L:{context.Start.Line}|'{nomeDaVariavel}' já é o nome de uma função.");
+            
             object valorResolvido = Visit(context.expressao());
             
             if (valorResolvido is List<object>)
@@ -262,52 +275,41 @@ namespace Jogo.Core
         
             return null!;
         }
+        private bool ValorCombinaComTipo(string tipo, object valor)
+        {
+            switch (tipo)
+            {
+                case "int":     return valor is int;
+                case "float":   return valor is float || valor is int;
+                case "bool":    return valor is bool;
+                case "string":  return valor is string;
+                case "Direcao": return valor is string d && _direcoes.Contains(d);
+                case "Ataque":  return valor is string a && _ataques.Contains(a);
+                case "Arena":   return valor is string r && _arenas.Contains(r);
+                case "Inimigo": return valor is string;
+                default:        return false;
+            }
+        }
+
         private void VerificarTipo(string tipoEsperado, object valor, string nomeVar, int linha)
         {
+            if (!_tiposValidos.Contains(tipoEsperado))
+                throw new Exception($"L:{linha}|O tipo '{tipoEsperado}' não existe.");
+
             if (valor == null) return;
 
-            if (valor is List<object> listaDeValores)
+            if (valor is List<object> lista)
             {
-                if (listaDeValores.Count == 0) return;
-
-                foreach (var item in listaDeValores)
+                foreach (var item in lista)
                 {
-                    if (item == null) continue;
-
-                    bool itemValido = false;
-                    switch (tipoEsperado)
-                    {
-                        case "int": itemValido = item is int; break;
-                        case "float": itemValido = item is float || item is int; break; 
-                        case "bool": itemValido = item is bool; break;
-                        case "string":
-                        case "Direcao":
-                        case "Inimigo":
-                        case "Ataque":
-                        case "Arena":
-                            itemValido = item is string; break;
-                    }
-                    if (!itemValido) 
+                    if (item != null && !ValorCombinaComTipo(tipoEsperado, item))
                         throw new Exception($"L:{linha}|A lista '{nomeVar}' espera itens do tipo '{tipoEsperado}', mas encontrou um intruso do tipo '{item.GetType().Name}'.");
                 }
-                
-                return; 
+                return;
             }
-            bool tipoValido = false;
-            switch (tipoEsperado)
-            {
-                case "int": tipoValido = valor is int; break;
-                case "float": tipoValido = valor is float || valor is int; break;
-                case "bool": tipoValido = valor is bool; break;
-                case "string":
-                case "Direcao":
-                case "Inimigo":
-                case "Ataque":
-                case "Arena":
-                    tipoValido = valor is string; break;
-            }
-            
-            if (!tipoValido) throw new Exception($"L:{linha}|O valor passado para '{nomeVar}' não corresponde ao tipo '{tipoEsperado}'.");
+
+            if (!ValorCombinaComTipo(tipoEsperado, valor))
+                throw new Exception($"L:{linha}|O valor passado para '{nomeVar}' não corresponde ao tipo '{tipoEsperado}'.");
         }
 
         public override object VisitAtribuicao([NotNull] LinguagemParser.AtribuicaoContext context)
@@ -774,13 +776,35 @@ namespace Jogo.Core
         
         public override object VisitDeclaracaoFuncao([NotNull] LinguagemParser.DeclaracaoFuncaoContext context)
         {
-            string nomeDaFuncao = context.ID().GetText(); 
+            string nomeDaFuncao = context.ID().GetText();
+            int linha = context.Start.Line;
 
             if (_palavrasReservadas.Contains(nomeDaFuncao))
-                throw new Exception($"L:{context.Start.Line}|A palavra '{nomeDaFuncao}' é reservada pelo sistema e não pode ser usada como nome de função.");
+                throw new Exception($"L:{linha}|A palavra '{nomeDaFuncao}' é reservada pelo sistema e não pode ser usada como nome de função.");
+
+            if (_funcoesJogador.TryGetValue(nomeDaFuncao, out var existente) && existente != context)
+                throw new Exception($"L:{linha}|A função '{nomeDaFuncao}' já foi declarada.");
+
+            if (_memoria.ContainsKey(nomeDaFuncao) || (_escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeDaFuncao)))
+                throw new Exception($"L:{linha}|'{nomeDaFuncao}' já é o nome de uma variável.");
+
+            // Validação de parâmetros
+            var vistos = new HashSet<string>();
+            foreach (var p in context.parametro())
+            {
+                string pNome = p.ID().GetText();
+
+                if (p.TIPO().GetText() == "vazio")
+                    throw new Exception($"L:{p.Start.Line}|O parâmetro '{pNome}' não pode ser do tipo 'vazio'.");
+
+                if (_palavrasReservadas.Contains(pNome))
+                    throw new Exception($"L:{p.Start.Line}|'{pNome}' é uma palavra reservada e não pode ser nome de parâmetro.");
+
+                if (!vistos.Add(pNome))
+                    throw new Exception($"L:{p.Start.Line}|O parâmetro '{pNome}' está repetido.");
+            }
 
             _funcoesJogador[nomeDaFuncao] = context;
-            
             return null!;
         }
         
@@ -1001,6 +1025,9 @@ namespace Jogo.Core
             if (_palavrasReservadas.Contains(nome))
                 throw new Exception($"L:{linha}|'{nome}' é uma função ou palavra reservada do jogo e não pode ser usada como nome de variável.");
         
+            if (_funcoesJogador.ContainsKey(nome))
+                throw new Exception($"L:{context.Start.Line}|'{nome}' já é o nome de uma função.");
+
             object valor = Visit(context.lista());
         
             // Validação

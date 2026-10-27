@@ -48,21 +48,23 @@ chamadaFuncao: (objeto=ID '.')? funcao=ID '(' (expressao (',' expressao)*)? ')';
 
 // Expressões matemáticas, lógicas e estruturas de dados
 expressao: NAO expressao
-         | expressao (MULT | DIV | MOD) expressao
-         | expressao (SOMA | SUB) expressao
-         | expressao ( MAIOR | MENOR | MAIOR_IGUAL | MENOR_IGUAL | IGUAL | DIFERENTE) expressao
-         | expressao (E | OU) expressao
-         | ID
-         | NUMERO_INT
-         | NUMERO_FLOAT
-         | BOOLEANO
-         | STRING_LIT
-         | NULO
-         | chamadaFuncao
-         | '(' expressao ')'
-         | lista
-         | acessoLista
-         | acessoAtributo;
+       | SUB expressao
+       | expressao (MULT | DIV | MOD) expressao
+       | expressao (SOMA | SUB) expressao
+       | expressao ( MAIOR | MENOR | MAIOR_IGUAL | MENOR_IGUAL | IGUAL | DIFERENTE) expressao
+       | expressao (E) expressao
+       | expressao (OU) expressao
+       | ID
+       | NUMERO_INT
+       | NUMERO_FLOAT
+       | BOOLEANO
+       | STRING_LIT
+       | NULO
+       | chamadaFuncao
+       | '(' expressao ')'
+       | lista
+       | acessoLista
+       | acessoAtributo;
 
 // Vetores e acesso por índice
 declaracaoLista: 'Vetor' 'de' TIPO ID '=' lista;
@@ -108,8 +110,8 @@ NAO: '!';
 ID: [a-zA-Z_][a-zA-Z0-9_]*;
 
 // Tipos numéricos e texto
-NUMERO_INT: '-'?[0-9]+;
-NUMERO_FLOAT: '-'?[0-9]+ '.' [0-9]+;
+NUMERO_INT: [0-9]+;
+NUMERO_FLOAT: [0-9]+ '.' [0-9]+;
 STRING_LIT: '"' ~["]* '"';
 
 // Ignorar espaços, tabs e quebras de linha na hora de ler o código

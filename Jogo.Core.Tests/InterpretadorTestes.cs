@@ -448,11 +448,7 @@ namespace Jogo.Core.Tests
         // Método auxiliar
         private void Executar(string input, MeuVisitor visitor)
         {
-            var inputStream = new AntlrInputStream(input);
-            var lexer = new LinguagemLexer(inputStream);
-            var tokens = new CommonTokenStream(lexer);
-            var parser = new LinguagemParser(tokens);
-            var arvore = parser.programa();
+            var arvore = AnalisadorDeCodigo.Analisar(input);
             visitor.Visit(arvore);
         }
 
@@ -608,6 +604,48 @@ namespace Jogo.Core.Tests
 
             jogoMock.Received(1).Escreva("Numero dentro do limite");
         }
+
+        [Fact]
+        public void Deve_Barrar_Tipo_Inexistente()
+        {
+            var visitor = new MeuVisitor(Substitute.For<IAcoesDoJogo>());
+            var ex = Assert.Throws<Exception>(() => Executar("Foo x = 5", visitor));
+            Assert.Contains("Erro de sintaxe", ex.Message);
+        }
+        
+        [Fact]
+        public void Deve_Barrar_Variavel_Com_Nome_De_Palavra_Da_Linguagem()
+        {
+            var visitor = new MeuVisitor(Substitute.For<IAcoesDoJogo>());
+            var ex = Assert.Throws<Exception>(() => Executar("int se = 1", visitor));
+            Assert.Contains("Erro de sintaxe", ex.Message);
+        }
+        
+        [Fact]
+        public void Deve_Barrar_Variavel_Com_Nome_Reservado_Do_Jogo()
+        {
+            var visitor = new MeuVisitor(Substitute.For<IAcoesDoJogo>());
+            var ex = Assert.Throws<Exception>(() => Executar("int mover = 1", visitor));
+            Assert.Contains("palavra reservada", ex.Message);
+        }
+        
+        [Fact]
+        public void Deve_Barrar_Vetor_Com_Tipo_Misturado()
+        {
+            var visitor = new MeuVisitor(Substitute.For<IAcoesDoJogo>());
+            var ex = Assert.Throws<Exception>(() => Executar("Vetor de int v = [1, \"a\"]", visitor));
+            Assert.Contains("intruso", ex.Message);
+        }
+        
+        [Fact]
+        public void Deve_Barrar_Atribuicao_De_Tipo_Errado_No_Vetor()
+        {
+            var visitor = new MeuVisitor(Substitute.For<IAcoesDoJogo>());
+            var codigo = "Vetor de int v = [1, 2]\n" +
+                         "v[0] = \"texto\"";
+            var ex = Assert.Throws<Exception>(() => Executar(codigo, visitor));
+            Assert.Contains("não corresponde ao tipo", ex.Message);
+        }
         
         [Fact]
         public void Teste_Aberto()
@@ -615,22 +653,35 @@ namespace Jogo.Core.Tests
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
-            string codigo = 
-                        "int i = -100\n"+
-		                "i = i - 1\n" +
-                        "se(i == -101){\n"+
-		                " escreva(\"Fogo\")" +
-		                "}\n" +
-		                "Vetor de int vetor = [-1]\n" +
-                        "se(vetor[0] == -1){\n"+
-		                " escreva(\"Fogo\")" +
-		                "}\n";
+            string codigo = """
+            int i = 0
+            int j
+
+            vazio cleber(int i){
+                se (1+i == 2){
+                    escreva("oi")
+                }
+            }
+
+            Direcao dir = "Cima"
+            cleber(i)
+            escreva("oi")
+            escreva("oi")
+            """;
 
             Executar(codigo, visitor);
-            jogoMock.Received(2).Escreva("Fogo");
+            jogoMock.Received(2).Escreva("oi");
         }
 
     }
 
+/*
+Declaracao de var com n ome reservado
+tipagem e "enum"
+validar se classes nativas podem ser declaradas com valores errados
+validar criação de funções
+nomes de funções com nome reservado
+nome de variavel ja reservada
+*/
 
 }
