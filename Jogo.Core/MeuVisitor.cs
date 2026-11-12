@@ -26,6 +26,10 @@ namespace Jogo.Core
 
         private Stack<Dictionary<string, object>> _escoposLocais = new Stack<Dictionary<string, object>>();
 
+        private Dictionary<string, string> _tiposGlobais = new Dictionary<string, string>();
+        
+        private Stack<Dictionary<string, string>> _tiposLocais = new Stack<Dictionary<string, string>>();
+
         private Dictionary<string, LinguagemParser.DeclaracaoFuncaoContext> _funcoesJogador = new Dictionary<string, LinguagemParser.DeclaracaoFuncaoContext>();
         private readonly IAcoesDoJogo _jogo;
 
@@ -47,7 +51,7 @@ namespace Jogo.Core
             "mover", "podeMover", "atacar", "tempo", "vidaAtual", 
             "inimigoMaisProximo", "escanearArea", "posicaoX", "posicaoY", 
             "tesouroX", "tesouroY", "escapar", "arena", "comprar", 
-            "cinto", "mochila", "venderTudo", "max", "min", "tamanho", "trunca", "aleatorio", "Vetor"
+            "cinto", "mochila", "venderTudo", "max", "min", "tamanho", "trunca", "aleatorio", "Vetor", "escreva"
         };
         
         private HashSet<string> _palavrasReservadas;
@@ -212,30 +216,28 @@ namespace Jogo.Core
         {
             _jogo.DestacarLinhaAtual(context.Start.Line, "declaracao_var");
             System.Threading.Thread.Sleep(TEMPO_LINHA);
-            
+        
             string tipoDeclarado = context.TIPO().GetText();
             string nomeDaVariavel = context.ID().GetText();
-            
+            int linha = context.Start.Line;
+        
             if (tipoDeclarado == "vazio")
-            {
-                throw new Exception($"L:{context.Start.Line}|Não é possível criar uma variável do tipo 'vazio'. Esse tipo é exclusivo para funções e procedimentos.");
-            }
+                throw new Exception($"L:{linha}|Não é possível criar uma variável do tipo 'vazio'. Esse tipo é exclusivo para funções e procedimentos.");
         
-            if (_palavrasReservadas.Contains(nomeDaVariavel)) 
-            {
-                throw new Exception($"L:{context.Start.Line}|'{nomeDaVariavel}' é uma função ou palavra reservada do jogo e não pode ser usada como nome de variável.");
-            }
-            
+            if (_palavrasReservadas.Contains(nomeDaVariavel))
+                throw new Exception($"L:{linha}|'{nomeDaVariavel}' é uma função ou palavra reservada do jogo e não pode ser usada como nome de variável.");
+        
             if (_funcoesJogador.ContainsKey(nomeDaVariavel))
-                throw new Exception($"L:{context.Start.Line}|'{nomeDaVariavel}' já é o nome de uma função.");
-            
-            object valorResolvido = Visit(context.expressao());
-            
-            if (valorResolvido is List<object>)
-                throw new Exception($"L:{context.Start.Line}|Para criar uma lista, use: Vetor de {tipoDeclarado} {nomeDaVariavel} = [...]");
+                throw new Exception($"L:{linha}|'{nomeDaVariavel}' já é o nome de uma função.");
         
-            VerificarTipo(tipoDeclarado, valorResolvido, nomeDaVariavel, context.Start.Line);
-
+            object valorResolvido = Visit(context.expressao());
+        
+            if (valorResolvido is List<object>)
+                throw new Exception($"L:{linha}|Para criar uma lista, use: Vetor de {tipoDeclarado} {nomeDaVariavel} = [...]");
+        
+            VerificarTipo(tipoDeclarado, valorResolvido, nomeDaVariavel, linha);
+            valorResolvido = Normalizar(tipoDeclarado, valorResolvido);
+        
             if (_escoposLocais.Count > 0)
             {
                 var escopoAtual = _escoposLocais.Peek();
@@ -247,12 +249,12 @@ namespace Jogo.Core
                         escopoAtual[nomeDaVariavel] = valorResolvido;
                         return null!;
                     }
-                    
-                    throw new Exception($"L:{context.Start.Line}| Variável '{nomeDaVariavel}' já foi declarada.");
+                    throw new Exception($"L:{linha}| Variável '{nomeDaVariavel}' já foi declarada.");
                 }
         
                 escopoAtual[nomeDaVariavel] = valorResolvido;
-                _linhasDeclaracaoLocal.Peek()[nomeDaVariavel] = context.Start.Line;
+                _tiposLocais.Peek()[nomeDaVariavel] = tipoDeclarado;          // registro do tipo
+                _linhasDeclaracaoLocal.Peek()[nomeDaVariavel] = linha;
                 _declaracoesRegistradas.Add(context);
             }
             else
@@ -264,12 +266,12 @@ namespace Jogo.Core
                         _memoria[nomeDaVariavel] = valorResolvido;
                         return null!;
                     }
-        
-                    throw new Exception($"L:{context.Start.Line}| Variável '{nomeDaVariavel}' já foi declarada.");
+                    throw new Exception($"L:{linha}| Variável '{nomeDaVariavel}' já foi declarada.");
                 }
         
                 _memoria[nomeDaVariavel] = valorResolvido;
-                _linhasDeclaracaoGlobal[nomeDaVariavel] = context.Start.Line;
+                _tiposGlobais[nomeDaVariavel] = tipoDeclarado;                // registro do tipo
+                _linhasDeclaracaoGlobal[nomeDaVariavel] = linha;
                 _declaracoesRegistradas.Add(context);
             }
         
@@ -290,6 +292,10 @@ namespace Jogo.Core
                 default:        return false;
             }
         }
+        
+        // Função auxiliar 
+        private static object Normalizar(string tipo, object valor)
+            => (tipo == "float" && valor is int i) ? (object)(float)i : valor;
 
         private void VerificarTipo(string tipoEsperado, object valor, string nomeVar, int linha)
         {
@@ -312,62 +318,57 @@ namespace Jogo.Core
                 throw new Exception($"L:{linha}|O valor passado para '{nomeVar}' não corresponde ao tipo '{tipoEsperado}'.");
         }
 
+        
+
         public override object VisitAtribuicao([NotNull] LinguagemParser.AtribuicaoContext context)
         {
             _jogo.DestacarLinhaAtual(context.Start.Line, "atribuicao");
             System.Threading.Thread.Sleep(TEMPO_LINHA);
+
             string nomeDaVariavel = context.ID().GetText();
+            int linha = context.Start.Line;
             object novoValor = Visit(context.expressao());
 
             bool ehLocal = _escoposLocais.Count > 0 && _escoposLocais.Peek().ContainsKey(nomeDaVariavel);
             bool ehGlobal = _memoria.ContainsKey(nomeDaVariavel);
 
             DestacarDeclaracao(nomeDaVariavel, "origem_var");
-            if (_palavrasReservadas.Contains(nomeDaVariavel)) {
-                throw new Exception($"L:{context.Start.Line}|A palavra '{nomeDaVariavel}' é reservada pelo sistema e não pode ser alterada.");
-            }
 
-            if (!ehGlobal && !ehLocal) {
-                throw new Exception($"L:{context.Start.Line}|A variável '{nomeDaVariavel}' não foi criada. Declare seu tipo antes (ex: int {nomeDaVariavel} = 0).");
-            }
+            if (_palavrasReservadas.Contains(nomeDaVariavel))
+                throw new Exception($"L:{linha}|A palavra '{nomeDaVariavel}' é reservada pelo sistema e não pode ser alterada.");
+
+            if (!ehGlobal && !ehLocal)
+                throw new Exception($"L:{linha}|A variável '{nomeDaVariavel}' não foi criada. Declare seu tipo antes (ex: int {nomeDaVariavel} = 0).");
 
             object valorAntigo = ehLocal ? _escoposLocais.Peek()[nomeDaVariavel] : _memoria[nomeDaVariavel];
+
             if (valorAntigo is Vetor vetorAntigo)
             {
                 if (novoValor is not List<object> novaLista)
-                    throw new Exception($"L:{context.Start.Line}|'{nomeDaVariavel}' é um vetor e só pode receber outra lista.");
+                    throw new Exception($"L:{linha}|'{nomeDaVariavel}' é um vetor e só pode receber outra lista.");
 
-                VerificarTipo(vetorAntigo.TipoElemento, novaLista, nomeDaVariavel, context.Start.Line);
+                VerificarTipo(vetorAntigo.TipoElemento, novaLista, nomeDaVariavel, linha);
                 novoValor = new Vetor(vetorAntigo.TipoElemento, novaLista);
-            }
-
-            Type tipoOriginal = valorAntigo.GetType();
-            Type tipoNovo = novoValor.GetType();
-
-            if (tipoOriginal != tipoNovo)
-            {
-                if (tipoOriginal == typeof(float) && (tipoNovo == typeof(int) || tipoNovo == typeof(double)))
-                {
-                    novoValor = Convert.ToSingle(novoValor);
-                }
-                else
-                {
-                    string nomeOriginal = tipoOriginal.Name.Replace("Int32", "int").Replace("Single", "float").Replace("String", "string").Replace("Boolean", "bool");
-                    string nomeNovo = tipoNovo.Name.Replace("Int32", "int").Replace("Single", "float").Replace("String", "string").Replace("Boolean", "bool");
-
-                    throw new Exception($"L:{context.Start.Line}|Erro de tipo: A variável '{nomeDaVariavel}' é do tipo '{nomeOriginal}', mas você tentou atribuir um valor do tipo '{nomeNovo}'.");
-                }
-            }
-
-            if (ehLocal)
-            {
-                _escoposLocais.Peek()[nomeDaVariavel] = novoValor;
             }
             else
             {
-                _memoria[nomeDaVariavel] = novoValor;
+                if (novoValor is List<object>)
+                    throw new Exception($"L:{linha}|'{nomeDaVariavel}' não é um vetor. Para criar uma lista, use: Vetor de <tipo> {nomeDaVariavel} = [...]");
+
+                string? tipoDeclarado = null;
+                if (ehLocal) _tiposLocais.Peek().TryGetValue(nomeDaVariavel, out tipoDeclarado);
+                else         _tiposGlobais.TryGetValue(nomeDaVariavel, out tipoDeclarado);
+
+                if (tipoDeclarado == null)
+                    throw new Exception($"L:{linha}|Erro interno: o tipo da variável '{nomeDaVariavel}' não foi registrado.");
+
+                VerificarTipo(tipoDeclarado, novoValor, nomeDaVariavel, linha);
+                novoValor = Normalizar(tipoDeclarado, novoValor);
             }
-            
+
+            if (ehLocal) _escoposLocais.Peek()[nomeDaVariavel] = novoValor;
+            else         _memoria[nomeDaVariavel] = novoValor;
+
             return null!;
         }
 
@@ -378,7 +379,7 @@ namespace Jogo.Core
             object resultadoCondicaoSe = Visit(context.expressao());
 
             if (!(resultadoCondicaoSe is bool condicaoSe))
-                throw new Exception("Erro de Tipo: A condição do 'se' precisa ser Verdadeiro ou Falso.");
+                throw new Exception($"L:{context.Start.Line}|A condição do 'se' precisa ser Verdadeiro ou Falso.");
 
             if (condicaoSe)
             {
@@ -399,7 +400,7 @@ namespace Jogo.Core
                     object resultadoSenaoSe = Visit(senaoSeContext.expressao());
 
                     if (!(resultadoSenaoSe is bool condicaoSenaoSe))
-                        throw new Exception("Erro de Tipo: A condição do 'senão se' precisa ser Verdadeiro ou Falso.");
+                        throw new Exception($"L:{senaoSeContext.Start.Line}|A condição do 'senao se' precisa ser Verdadeiro ou Falso.");
 
                     if (condicaoSenaoSe)
                     {
@@ -452,6 +453,10 @@ namespace Jogo.Core
             return null!;
         }
         
+        private static string ArgTexto(List<object> args, int i, string funcao, int linha)
+            => args[i]?.ToString() 
+                ?? throw new Exception($"L:{linha}|O argumento {i + 1} de '{funcao}' não pode ser Nulo.");
+
         public override object VisitChamadaFuncao([NotNull] LinguagemParser.ChamadaFuncaoContext context)
         {
             string? prefixo = context.objeto != null ? context.objeto.Text : null;
@@ -488,14 +493,14 @@ namespace Jogo.Core
 
                 case "mover":
                     if (args.Count != 1) throw new Exception($"L:{context.Start.Line}|'mover()' precisa de 1 Direção.");
-                    string dirMover = args[0].ToString()!;
+                    string dirMover = ArgTexto(args, 0, "mover", context.Start.Line);
                     if (!_direcoes.Contains(dirMover)) throw new Exception($"L:{context.Start.Line}|Direção '{dirMover}' inválida. Use Cima, Baixo, Esquerda ou Direita.");
                     _jogo.Mover(dirMover);
                     return null!;
         
                 case "podeMover":
                     if (args.Count != 1) throw new Exception($"L:{context.Start.Line}|'podeMover()' precisa de 1 Direção.");
-                    string dirPode = args[0].ToString()!;
+                    string dirPode = ArgTexto(args, 0, "podeMover", context.Start.Line);
                     if (!_direcoes.Contains(dirPode)) throw new Exception($"L:{context.Start.Line}|Direção '{dirPode}' inválida.");
                     return _jogo.PodeMover(dirPode);
         
@@ -508,7 +513,7 @@ namespace Jogo.Core
                         throw new Exception($"L:{context.Start.Line}| O ataque passado não pode ser Nulo!");
                     }
                     
-                    string elemento = args[1].ToString()!;
+                    string elemento = ArgTexto(args, 1, "atacar", context.Start.Line);
                     
                     if (!_ataques.Contains(elemento)) {
                         throw new Exception($"L:{context.Start.Line}| O ataque '{elemento}' é inválido ou você não o possui.");
@@ -573,7 +578,7 @@ namespace Jogo.Core
         
                 case "arena":
                     if (args.Count != 1) throw new Exception($"L:{context.Start.Line}|'arena()' precisa do nome da arena.");
-                    string arenaDigitada = args[0].ToString()!;
+                    string arenaDigitada = ArgTexto(args, 0, "arena", context.Start.Line);
                     if (!_arenas.Contains(arenaDigitada)) throw new Exception($"L:{context.Start.Line}|A arena '{arenaDigitada}' não existe.");
                     _jogo.EntrarArena(arenaDigitada);
                     System.Threading.Thread.Sleep(DELAY_TRANSICAO_CENA);
@@ -592,12 +597,12 @@ namespace Jogo.Core
         
                 case "cinto.colocarItem":
                     if (args.Count != 2 || !(args[1] is int)) throw new Exception($"L:{context.Start.Line}|'cinto.colocarItem()' exige o Item e o Índice numérico.");
-                    _jogo.ColocarItemCinto(args[0].ToString()!, (int)args[1]);
+                    _jogo.ColocarItemCinto(ArgTexto(args, 0, "cinto.colocarItem", context.Start.Line), (int)args[1]);
                     return null!;
         
                 case "mochila.colocarItem":
                     if (args.Count != 1) throw new Exception($"L:{context.Start.Line}|'mochila.colocarItem()' exige 1 Item.");
-                    _jogo.ColocarItemMochila(args[0].ToString()!);
+                    _jogo.ColocarItemMochila(ArgTexto(args, 0, "mochila.colocarItem", context.Start.Line));
                     return null!;
 
                 case "mochila.usarItem":
@@ -610,7 +615,7 @@ namespace Jogo.Core
                 case "comprar":
                     if (args.Count != 1) throw new Exception($"L:{context.Start.Line}|'comprar()' precisa do nome do produto.");
 
-                    string produtoDigitado = args[0].ToString()!;
+                    string produtoDigitado = ArgTexto(args, 0, "comprar", context.Start.Line);
                     // TODO Futuro: if (!_produtos.Contains(produtoDigitado)) throw new Exception(...);
                     _jogo.Comprar(produtoDigitado);
                     return null!;
@@ -714,6 +719,8 @@ namespace Jogo.Core
                         // 2. CRIA O ESCOPO LOCAL E INJETA ARGUMENTOS
                         var escopoLocal = new Dictionary<string, object>();
                         var escopoLinhas = new Dictionary<string, int>();
+                        var escopoTipos = new Dictionary<string, string>();
+
                         for (int i = 0; i < args.Count; i++)
                         {
                             var argumento = args[i];
@@ -725,13 +732,16 @@ namespace Jogo.Core
 
                             VerificarTipo(paramTipo, argumento, paramNome, context.Start.Line);
 
-                            escopoLocal[paramNome] = argumento;
+                            escopoLocal[paramNome] = Normalizar(paramTipo, argumento);
                             escopoLinhas[paramNome] = parametrosEsperados[i].Linha;
+                            escopoTipos[paramNome] = paramTipo;
                         }
                         _linhasDeclaracaoLocal.Push(escopoLinhas);
+                        _tiposLocais.Push(escopoTipos);
                         _escoposLocais.Push(escopoLocal); 
 
                         object? valorRetornado = null;
+                        bool retornouComValor = false;
 
                         try
                         {
@@ -745,32 +755,36 @@ namespace Jogo.Core
                         catch (ExcecaoRetorno retornoException)
                         {
                             valorRetornado = retornoException.Valor;
+                            retornouComValor = retornoException.TemValor;
                         }
                         finally
                         {
-                            _escoposLocais.Pop(); 
+                            _escoposLocais.Pop();
+                            _tiposLocais.Pop();
+                            _linhasDeclaracaoLocal.Pop();
                         }
 
                         // ==========================================
                         // 5. VALIDAÇÕES DO GDD PARA O TIPO DE RETORNO
                         // ==========================================
 
-                        if (tipoDeRetorno == "vazio" && valorRetornado != null)
+                        if (tipoDeRetorno == "vazio" && retornouComValor)
                             throw new Exception($"L:{context.Start.Line}|O procedimento '{nomeCompleto}' é do tipo 'vazio' e não deve retornar valores.");
 
-                        if (tipoDeRetorno != "vazio" && valorRetornado == null)
-                            throw new Exception($"L:{context.Start.Line}|A função '{nomeCompleto}' exige um retorno '{tipoDeRetorno}', mas retornou vazio.");
-
-                        if (valorRetornado != null && tipoDeRetorno != "vazio")
+                        if (tipoDeRetorno != "vazio")
                         {
-                            VerificarTipo(tipoDeRetorno, valorRetornado, $"retorno_de_{nomeCompleto}", context.Start.Line);
+                            if (!retornouComValor)
+                                throw new Exception($"L:{context.Start.Line}|A função '{nomeCompleto}' exige um retorno '{tipoDeRetorno}', mas terminou sem retornar nada.");
+
+                            VerificarTipo(tipoDeRetorno, valorRetornado!, $"retorno_de_{nomeCompleto}", context.Start.Line);
+                            valorRetornado = Normalizar(tipoDeRetorno, valorRetornado!);
                         }
 
                         Console.WriteLine($"[Chamada de Função] Executou função do player '{nomeCompleto}'. Retornou: {valorRetornado ?? "vazio"}");
                         return valorRetornado!;
                     }
 
-                    throw new Exception($"L:{context.Start.Line}|O comando '{nomeCompleto}' não é reconhecido.");
+                    throw new Exception($"L:{context.Start.Line}|O comando '{nomeCompleto}' não é reconhecido. (Funções devem ser declaradas antes de serem chamadas)");
                     }
         }
         
@@ -814,13 +828,14 @@ namespace Jogo.Core
             System.Threading.Thread.Sleep(TEMPO_LINHA);
             object? valorDeRetorno = context.expressao() != null ? Visit(context.expressao()) : null;
         
-            throw new ExcecaoRetorno(valorDeRetorno);
+            if (_escoposLocais.Count == 0)
+                throw new Exception($"L:{context.Start.Line}|'retorna' só pode ser usado dentro de uma função.");
+
+            throw new ExcecaoRetorno(valorDeRetorno, context.expressao() != null);
         }
        public override object VisitLista([NotNull] LinguagemParser.ListaContext context)
         {
             var lista = new List<object>(); 
-            if (lista.Count > MAX_TAMANHO_LISTA)
-                throw new Exception($"L:{context.Start.Line}|Limite de memória excedido! As listas do jogo suportam no máximo {MAX_TAMANHO_LISTA} espaços.");
 
             if (context.expressao() != null)
             {
@@ -829,6 +844,8 @@ namespace Jogo.Core
                     lista.Add(Visit(exp));
                 }
             }
+            if (lista.Count > MAX_TAMANHO_LISTA)
+                throw new Exception($"L:{context.Start.Line}|Limite de memória excedido! As listas do jogo suportam no máximo {MAX_TAMANHO_LISTA} espaços.");
             return lista; 
         }
 
@@ -879,6 +896,12 @@ namespace Jogo.Core
                 // Caso: funcao().atributo
                 baseObj = Visit(context.chamadaFuncao());
                 nomeBase = context.chamadaFuncao().GetText(); // Salva o nome da função apenas para caso de erro
+            }
+            else if (context.acessoLista() != null)
+            {
+                // Caso: lista[i].atributo
+                baseObj = Visit(context.acessoLista());
+                nomeBase = context.acessoLista().GetText();
             }
             else if (context.ID().Length == 2)
             {
@@ -1028,16 +1051,21 @@ namespace Jogo.Core
             if (_funcoesJogador.ContainsKey(nome))
                 throw new Exception($"L:{context.Start.Line}|'{nome}' já é o nome de uma função.");
 
-            object valor = Visit(context.lista());
-        
-            // Validação
-            VerificarTipo(tipo, valor, nome, linha);
+            object valor = Visit(context.expressao());
 
-            var itens = (List<object>)valor;
+            if (valor is not List<object> origem)
+                throw new Exception($"L:{linha}|O vetor '{nome}' precisa receber uma lista (ex: [1, 2, 3]) ou uma função que retorne uma lista.");
+            
+            VerificarTipo(tipo, origem, nome, linha);
+            
+            if (origem.Count > MAX_TAMANHO_LISTA)
+                throw new Exception($"L:{linha}|Limite de memória excedido! As listas do jogo suportam no máximo {MAX_TAMANHO_LISTA} espaços.");
+            
+            var itens = new List<object>(origem);   // cópia: não altera a lista original
             if (tipo == "float")
                 for (int i = 0; i < itens.Count; i++)
                     if (itens[i] is int n) itens[i] = (float)n;
-
+            
             valor = new Vetor(tipo, itens);
         
             if (_escoposLocais.Count > 0)
@@ -1084,7 +1112,8 @@ namespace Jogo.Core
     public class ExcecaoRetorno : Exception
     {
         public object? Valor { get; }
-        public ExcecaoRetorno(object? valor) { Valor = valor; }
+        public bool TemValor { get; }
+        public ExcecaoRetorno(object? valor, bool temValor) { Valor = valor; TemValor = temValor; }
     }
 
 }

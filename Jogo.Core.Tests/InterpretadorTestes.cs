@@ -654,18 +654,17 @@ namespace Jogo.Core.Tests
             var visitor = new MeuVisitor(jogoMock);
 
             string codigo = """
-            int i = 0
-            int j
+            int cleber(){retorna 1}
+            int j = cleber()
 
-            vazio cleber(int i){
-                se (1+i == 2){
-                    escreva("oi")
-                }
-            }
+            int a = Nulo
+            a = 1
+            Vetor de string cleiton = ["1", "oi", "3"]
 
-            Direcao dir = "Cima"
-            cleber(i)
-            escreva("oi")
+
+
+            se (j == 1){escreva(cleiton[1])}
+            
             escreva("oi")
             """;
 
@@ -674,14 +673,5 @@ namespace Jogo.Core.Tests
         }
 
     }
-
-/*
-Declaracao de var com n ome reservado
-tipagem e "enum"
-validar se classes nativas podem ser declaradas com valores errados
-validar criação de funções
-nomes de funções com nome reservado
-nome de variavel ja reservada
-*/
 
 }
