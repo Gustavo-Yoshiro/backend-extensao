@@ -132,12 +132,18 @@ namespace Jogo.Core
                 {
                     if (esquerdo == null && direito == null) return true;
                     if (esquerdo == null || direito == null) return false;
+
+                    if ((esquerdo is int || esquerdo is float) && (direito is int || direito is float))
+                        return Convert.ToSingle(esquerdo) == Convert.ToSingle(direito);
                     return esquerdo.Equals(direito);
                 }
                 if (context.DIFERENTE() != null)
                 {
                     if (esquerdo == null && direito == null) return false;
                     if (esquerdo == null || direito == null) return true;
+
+                    if ((esquerdo is int || esquerdo is float) && (direito is int || direito is float))
+                        return Convert.ToSingle(esquerdo) != Convert.ToSingle(direito);
                     return !esquerdo.Equals(direito);
                 }
 
@@ -885,17 +891,23 @@ namespace Jogo.Core
             throw new Exception($"L:{context.Start.Line}|A variável '{nomeVar}' não é uma lista.");
         }
 
-        public override object VisitAcessoAtributo([NotNull] LinguagemParser.AcessoAtributoContext context)
+       public override object VisitAcessoAtributo([NotNull] LinguagemParser.AcessoAtributoContext context)
         {
             object baseObj = null!;
             string nomeBase = "";
 
-            // 1. Identifica a base: É uma função ou uma variável?
+            // 1. Identifica a base: É uma função, um item de vetor ou uma variável?
             if (context.chamadaFuncao() != null)
             {
                 // Caso: funcao().atributo
                 baseObj = Visit(context.chamadaFuncao());
-                nomeBase = context.chamadaFuncao().GetText(); // Salva o nome da função apenas para caso de erro
+                nomeBase = context.chamadaFuncao().GetText();
+            }
+            else if (context.acessoLista() != null)
+            {
+                // Caso: area[1].atributo
+                baseObj = Visit(context.acessoLista());
+                nomeBase = context.acessoLista().GetText();
             }
             else if (context.acessoLista() != null)
             {
@@ -1062,6 +1074,7 @@ namespace Jogo.Core
                 throw new Exception($"L:{linha}|Limite de memória excedido! As listas do jogo suportam no máximo {MAX_TAMANHO_LISTA} espaços.");
             
             var itens = new List<object>(origem);   // cópia: não altera a lista original
+
             if (tipo == "float")
                 for (int i = 0; i < itens.Count; i++)
                     if (itens[i] is int n) itens[i] = (float)n;

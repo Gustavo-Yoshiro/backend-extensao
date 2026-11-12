@@ -672,6 +672,73 @@ namespace Jogo.Core.Tests
             jogoMock.Received(2).Escreva("oi");
         }
 
+        [Fact]
+        public void Deve_Comparar_Float_E_Int_Com_Igual_E_Diferente()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            var visitor = new MeuVisitor(jogoMock);
+
+            string codigo = 
+                "se (2.0 == 2) {\n" +
+                "    escreva(\"igual_ok\")\n" +
+                "}\n" +
+                "se (2.0 != 2) {\n" +
+                "    escreva(\"erro_diferente\")\n" +
+                "} senao {\n" +
+                "    escreva(\"diferente_ok\")\n" +
+                "}";
+
+            Executar(codigo, visitor);
+
+            jogoMock.Received(1).Escreva("igual_ok");
+            jogoMock.Received(1).Escreva("diferente_ok");
+            jogoMock.DidNotReceive().Escreva("erro_diferente");
+        }
+
+        [Fact]
+        public void Deve_Declarar_Vetor_Direto_Com_Chamada_De_Funcao()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            jogoMock.EscanearArea().Returns(new System.Collections.Generic.List<string> { "Goblin", "Orc" });
+            jogoMock.InimigoExiste("Goblin").Returns(true);
+            jogoMock.ObterNomeInimigo("Goblin").Returns("Goblin");
+
+            var visitor = new MeuVisitor(jogoMock);
+
+            string codigo = 
+                "Vetor de Inimigo area = escanearArea()\n" +
+                "escreva(tamanho(area))";
+
+            Executar(codigo, visitor);
+
+            jogoMock.Received(1).EscanearArea();
+            jogoMock.Received(1).Escreva("2");
+        }
+
+        [Fact]
+        public void Deve_Acessar_Atributo_Direto_De_Item_Do_Vetor()
+        {
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            jogoMock.EscanearArea().Returns(new System.Collections.Generic.List<string> { "Goblin", "SlimeDeFogo" });
+            
+            // Configura o Mock para reconhecer o inimigo na posição 1 ("SlimeDeFogo")
+            jogoMock.InimigoExiste("SlimeDeFogo").Returns(true);
+            jogoMock.ObterNomeInimigo("SlimeDeFogo").Returns("SlimeDeFogo");
+            jogoMock.ObterVidaInimigo("SlimeDeFogo").Returns(80);
+
+            var visitor = new MeuVisitor(jogoMock);
+
+            string codigo = 
+                "Vetor de Inimigo area = escanearArea()\n" +
+                "escreva(area[1].nome)\n" +
+                "escreva(area[1].vida)";
+
+            Executar(codigo, visitor);
+
+            jogoMock.Received(1).Escreva("SlimeDeFogo");
+            jogoMock.Received(1).Escreva("80");
+        }
+
     }
 
 }

@@ -67,7 +67,7 @@ expressao: NAO expressao
        | acessoAtributo;
 
 // Vetores e acesso por índice
-declaracaoLista: 'Vetor' 'de' TIPO ID '=' lista;
+declaracaoLista: 'Vetor' 'de' TIPO ID '=' expressao;
 lista: '[' (expressao (',' expressao)*)? ']';
 acessoLista: ID '[' expressao ']';
 atribuicaoLista: ID '[' expressao ']' '=' expressao;
@@ -117,7 +117,7 @@ STRING_LIT: '"' ~["]* '"';
 // Ignorar espaços, tabs e quebras de linha na hora de ler o código
 WS: [ \t\r\n]+ -> skip;
 
-acessoAtributo: (ID | chamadaFuncao) '.' ID;
+acessoAtributo: (ID | chamadaFuncao | acessoLista) '.' ID;
 
 // Sistema de comentário: # + *qualquer coisa* -> Ignorado (até o fim da linha)
 COMENTARIO: '#' ~[\r\n]* -> skip;
