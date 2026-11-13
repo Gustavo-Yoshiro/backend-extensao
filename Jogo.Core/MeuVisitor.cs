@@ -75,6 +75,69 @@ namespace Jogo.Core
                 _memoria[constante] = constante;
             }
         }
+        private static int ArgInt(List<object> args, int i, string funcao, int linha)
+            => args[i] is int n ? n
+            : throw new Exception($"L:{linha}|O argumento {i + 1} de '{funcao}' precisa ser um número inteiro.");
+        private static void ExigirLogico(object? valor, int linha)
+        {
+            if (valor == null)
+                throw new Exception($"L:{linha}|Operadores 'e'/'ou' não aceitam 'Nulo'. Use Verdadeiro ou Falso.");
+            if (valor is not bool)
+                throw new Exception($"L:{linha}|Operadores 'e'/'ou' só funcionam com valores lógicos (Verdadeiro/Falso).");
+        }
+
+        // Tem um problema que ta acontecendo que msg de erro não retorna o tipo do jogo mas sim do c# (ex: Int32). Essa função é para resolver isso.
+        private static string NomeTipo(object? v) => v switch
+        {
+            null => "Nulo",
+            int => "int",
+            float => "float",
+            bool => "bool",
+            string => "string",
+            Vetor vt => $"Vetor de {vt.TipoElemento}",
+            List<object> => "vetor",
+            _ => v.GetType().Name
+        };
+        private readonly record struct TipoDecl(string Elemento, bool EhVetor)
+        {
+            public override string ToString() => EhVetor ? $"Vetor de {Elemento}" : Elemento;
+        }
+
+        private static TipoDecl LerTipo(LinguagemParser.TipoCompletoContext t)
+            => new TipoDecl(t.TIPO().GetText(), t.ChildCount > 1);
+
+        // Valida valor contra um tipo que pode ser escalar ou vetor (parâmetros e retornos)
+        private void VerificarTipoCompleto(TipoDecl tipo, object? valor, string nome, int linha)
+        {
+            if (!tipo.EhVetor)
+            {
+                if (valor is List<object>)
+                    throw new Exception($"L:{linha}|'{nome}' espera '{tipo}', mas recebeu um vetor.");
+
+                VerificarTipo(tipo.Elemento, valor!, nome, linha);
+                return;
+            }
+
+            if (!_tiposValidos.Contains(tipo.Elemento))
+                throw new Exception($"L:{linha}|O tipo '{tipo.Elemento}' não existe.");
+
+            if (valor is not List<object> lista)
+                throw new Exception($"L:{linha}|'{nome}' espera '{tipo}', mas recebeu '{NomeTipo(valor)}'.");
+
+            if (lista is Vetor vetor && vetor.TipoElemento != tipo.Elemento)
+                throw new Exception($"L:{linha}|'{nome}' espera '{tipo}', mas recebeu '{NomeTipo(vetor)}'.");
+
+            VerificarTipo(tipo.Elemento, lista, nome, linha);   // confere os itens
+        }
+        
+        private static bool SaoIguais(object? a, object? b)
+        {
+            if (a == null && b == null) return true;
+            if (a == null || b == null) return false;
+            if ((a is int || a is float) && (b is int || b is float))
+                return Convert.ToDouble(a) == Convert.ToDouble(b);
+            return a.Equals(b);
+        }
 
         public override object VisitExpressao([NotNull] LinguagemParser.ExpressaoContext context)
         {
@@ -123,42 +186,33 @@ namespace Jogo.Core
             if (context.lista() != null) return Visit(context.lista());
             if (context.acessoLista() != null) return Visit(context.acessoLista());
 
+            // Curto-circuito
+            if (context.expressao().Length == 2 && (context.E() != null || context.OU() != null))
+            {
+                bool ehE = context.E() != null;
+                int linhaLogica = context.Start.Line;
+
+                object esq = Visit(context.expressao(0));
+                ExigirLogico(esq, linhaLogica);
+                bool valorEsq = (bool)esq;
+
+                if (ehE && !valorEsq) return false;   
+                if (!ehE && valorEsq) return true;     
+
+                object dir = Visit(context.expressao(1));
+                ExigirLogico(dir, linhaLogica);
+                return (bool)dir;
+            }
+
             if (context.expressao().Length == 2)
             {
                 object esquerdo = Visit(context.expressao(0));
                 object direito = Visit(context.expressao(1));
 
-                if (context.IGUAL() != null)
-                {
-                    if (esquerdo == null && direito == null) return true;
-                    if (esquerdo == null || direito == null) return false;
+                if (context.IGUAL() != null)     return SaoIguais(esquerdo, direito);
 
-                    if ((esquerdo is int || esquerdo is float) && (direito is int || direito is float))
-                        return Convert.ToSingle(esquerdo) == Convert.ToSingle(direito);
-                    return esquerdo.Equals(direito);
-                }
-                if (context.DIFERENTE() != null)
-                {
-                    if (esquerdo == null && direito == null) return false;
-                    if (esquerdo == null || direito == null) return true;
+                if (context.DIFERENTE() != null) return !SaoIguais(esquerdo, direito);
 
-                    if ((esquerdo is int || esquerdo is float) && (direito is int || direito is float))
-                        return Convert.ToSingle(esquerdo) != Convert.ToSingle(direito);
-                    return !esquerdo.Equals(direito);
-                }
-
-                if (context.E() != null || context.OU() != null)
-                {
-                    if (esquerdo == null || direito == null)
-                        throw new Exception($"L:{context.Start.Line}|Operadores 'e'/'ou' não aceitam 'Nulo'. Use Verdadeiro ou Falso.");
-                    
-                    if (esquerdo is bool boolEsq && direito is bool boolDir)
-                    {
-                        if (context.E() != null) return boolEsq && boolDir;
-                        if (context.OU() != null) return boolEsq || boolDir;
-                    }
-                    throw new Exception($"L:{context.Start.Line}|Operadores 'e'/'ou' só funcionam com valores lógicos (Verdadeiro/Falso).");
-                }
 
                 if (context.SOMA() != null && (esquerdo is string || direito is string))
                 {
@@ -212,7 +266,7 @@ namespace Jogo.Core
                     }
                 }
 
-                throw new Exception($"L:{context.Start.Line}|Não é possível calcular '{esquerdo.GetType().Name}' com '{direito.GetType().Name}'.");
+                throw new Exception($"L:{context.Start.Line}|Não é possível calcular '{NomeTipo(esquerdo)}' com '{NomeTipo(direito)}'.");
             }
             
             return null!;
@@ -315,13 +369,13 @@ namespace Jogo.Core
                 foreach (var item in lista)
                 {
                     if (item != null && !ValorCombinaComTipo(tipoEsperado, item))
-                        throw new Exception($"L:{linha}|A lista '{nomeVar}' espera itens do tipo '{tipoEsperado}', mas encontrou um intruso do tipo '{item.GetType().Name}'.");
+                        throw new Exception($"L:{linha}|A lista '{nomeVar}' espera itens do tipo '{tipoEsperado}', mas encontrou um intruso do tipo '{NomeTipo(item)}'.");
                 }
                 return;
             }
 
             if (!ValorCombinaComTipo(tipoEsperado, valor))
-                throw new Exception($"L:{linha}|O valor passado para '{nomeVar}' não corresponde ao tipo '{tipoEsperado}'.");
+                throw new Exception($"L:{linha}|O valor passado para '{nomeVar}' não corresponde ao tipo '{tipoEsperado}' (recebeu '{NomeTipo(valor)}').");
         }
 
         
@@ -595,14 +649,14 @@ namespace Jogo.Core
                 // ==========================================
 
                 case "cinto.usarItem":
-                    if (args.Count != 1 || !(args[0] is int)) throw new Exception($"L:{context.Start.Line}|'cinto.usarItem' exige 1 índice numérico inteiro.");
+                    ArgInt(args, 0, "cinto.usarItem", context.Start.Line);
                     
                     Console.WriteLine($"[Chamada de Função] Função 'cinto.usarItem' acionada (Índice: {args[0]})");
                     _jogo.UsarItemCinto((int)args[0]);
                     return null!;
         
                 case "cinto.colocarItem":
-                    if (args.Count != 2 || !(args[1] is int)) throw new Exception($"L:{context.Start.Line}|'cinto.colocarItem()' exige o Item e o Índice numérico.");
+                    ArgInt(args, 1, "cinto.colocarItem", context.Start.Line);
                     _jogo.ColocarItemCinto(ArgTexto(args, 0, "cinto.colocarItem", context.Start.Line), (int)args[1]);
                     return null!;
         
@@ -695,34 +749,28 @@ namespace Jogo.Core
                     if (args.Count != 0) 
                         throw new Exception($"L:{context.Start.Line}|A função 'aleatorio()' não recebe argumentos.");
                     
-                    float valorAleatorio = (float)Math.Round(new Random().NextDouble(), 2);
+                    float valorAleatorio = (float)Math.Round(Random.Shared.NextDouble(), 2);
                     return valorAleatorio;
 
                 default:
                     if (_funcoesJogador.ContainsKey(nomeCompleto))
                     {
                         var funcaoContext = _funcoesJogador[nomeCompleto];
-                        string tipoDeRetorno = funcaoContext.TIPO().GetText();
+                        TipoDecl tipoDeRetorno = LerTipo(funcaoContext.tipoCompleto());
+                        bool ehProcedimento = !tipoDeRetorno.EhVetor && tipoDeRetorno.Elemento == "vazio";
 
-                        // 1. DESCOBRE OS PARÂMETROS ESPERADOS (Nome e Tipo)
-                        var parametrosEsperados = new List<(string Nome, string Tipo, int Linha)>();
-                        if (funcaoContext.parametro() != null)
-                        {
-                            foreach (var p in funcaoContext.parametro())
-                            {
-                                parametrosEsperados.Add((p.ID().GetText(), p.TIPO().GetText(), p.Start.Line));
-                            }
-                        }
+                        // 1. Parâmetros esperados
+                        var parametrosEsperados = new List<(string Nome, TipoDecl Tipo, int Linha)>();
+                        foreach (var p in funcaoContext.parametro())
+                            parametrosEsperados.Add((p.ID().GetText(), LerTipo(p.tipoCompleto()), p.Start.Line));
 
                         if (args.Count != parametrosEsperados.Count)
                             throw new Exception($"L:{context.Start.Line}|A função '{nomeCompleto}' espera {parametrosEsperados.Count} argumento(s), mas recebeu {args.Count}.");
 
                         if (_escoposLocais.Count >= MAX_PROFUNDIDADE_RECURSAO)
-                        {
                             throw new Exception($"L:{context.Start.Line}|Erro Crítico: A função '{nomeCompleto}' causou um loop de recursão infinito (limite de {MAX_PROFUNDIDADE_RECURSAO} chamadas excedido).");
-                        }
 
-                        // 2. CRIA O ESCOPO LOCAL E INJETA ARGUMENTOS
+                        // 2. Escopo local com os argumentos
                         var escopoLocal = new Dictionary<string, object>();
                         var escopoLinhas = new Dictionary<string, int>();
                         var escopoTipos = new Dictionary<string, string>();
@@ -730,21 +778,19 @@ namespace Jogo.Core
                         for (int i = 0; i < args.Count; i++)
                         {
                             var argumento = args[i];
-                            string paramNome = parametrosEsperados[i].Nome;
-                            string paramTipo = parametrosEsperados[i].Tipo;
+                            var (paramNome, paramTipo, paramLinha) = parametrosEsperados[i];
 
-                            if (paramTipo == "vazio")
-                                throw new Exception($"L:{context.Start.Line}|O parâmetro '{paramNome}' não pode ser do tipo 'vazio'.");
+                            VerificarTipoCompleto(paramTipo, argumento, paramNome, context.Start.Line);
 
-                            VerificarTipo(paramTipo, argumento, paramNome, context.Start.Line);
-
-                            escopoLocal[paramNome] = Normalizar(paramTipo, argumento);
-                            escopoLinhas[paramNome] = parametrosEsperados[i].Linha;
-                            escopoTipos[paramNome] = paramTipo;
+                            // Vetor entra como está (o próprio Vetor guarda o tipo); escalar é normalizado e tem o tipo registrado
+                            escopoLocal[paramNome] = paramTipo.EhVetor ? argumento : Normalizar(paramTipo.Elemento, argumento);
+                            escopoLinhas[paramNome] = paramLinha;
+                            if (!paramTipo.EhVetor) escopoTipos[paramNome] = paramTipo.Elemento;
                         }
+
                         _linhasDeclaracaoLocal.Push(escopoLinhas);
                         _tiposLocais.Push(escopoTipos);
-                        _escoposLocais.Push(escopoLocal); 
+                        _escoposLocais.Push(escopoLocal);
 
                         object? valorRetornado = null;
                         bool retornouComValor = false;
@@ -753,7 +799,6 @@ namespace Jogo.Core
                         {
                             _jogo.DestacarLinhaAtual(funcaoContext.Start.Line, "corpo_funcao");
                             System.Threading.Thread.Sleep(TEMPO_LINHA);
-                            // 3. RODA A FUNÇÃO DO JOGADOR
                             foreach (var cmd in funcaoContext.comando()) Visit(cmd);
                             _jogo.DestacarLinhaAtual(funcaoContext.Stop.Line, "fim_funcao");
                             System.Threading.Thread.Sleep(TEMPO_LINHA);
@@ -770,28 +815,26 @@ namespace Jogo.Core
                             _linhasDeclaracaoLocal.Pop();
                         }
 
-                        // ==========================================
-                        // 5. VALIDAÇÕES DO GDD PARA O TIPO DE RETORNO
-                        // ==========================================
-
-                        if (tipoDeRetorno == "vazio" && retornouComValor)
+                        // 3. Validação do retorno
+                        if (ehProcedimento && retornouComValor)
                             throw new Exception($"L:{context.Start.Line}|O procedimento '{nomeCompleto}' é do tipo 'vazio' e não deve retornar valores.");
 
-                        if (tipoDeRetorno != "vazio")
+                        if (!ehProcedimento)
                         {
                             if (!retornouComValor)
                                 throw new Exception($"L:{context.Start.Line}|A função '{nomeCompleto}' exige um retorno '{tipoDeRetorno}', mas terminou sem retornar nada.");
 
-                            VerificarTipo(tipoDeRetorno, valorRetornado!, $"retorno_de_{nomeCompleto}", context.Start.Line);
-                            valorRetornado = Normalizar(tipoDeRetorno, valorRetornado!);
+                            VerificarTipoCompleto(tipoDeRetorno, valorRetornado, $"retorno_de_{nomeCompleto}", context.Start.Line);
+
+                            if (!tipoDeRetorno.EhVetor)
+                                valorRetornado = Normalizar(tipoDeRetorno.Elemento, valorRetornado!);
                         }
 
-                        Console.WriteLine($"[Chamada de Função] Executou função do player '{nomeCompleto}'. Retornou: {valorRetornado ?? "vazio"}");
                         return valorRetornado!;
                     }
 
                     throw new Exception($"L:{context.Start.Line}|O comando '{nomeCompleto}' não é reconhecido. (Funções devem ser declaradas antes de serem chamadas)");
-                    }
+                }
         }
         
         public override object VisitDeclaracaoFuncao([NotNull] LinguagemParser.DeclaracaoFuncaoContext context)
@@ -814,7 +857,7 @@ namespace Jogo.Core
             {
                 string pNome = p.ID().GetText();
 
-                if (p.TIPO().GetText() == "vazio")
+                if (LerTipo(p.tipoCompleto()).Elemento == "vazio")
                     throw new Exception($"L:{p.Start.Line}|O parâmetro '{pNome}' não pode ser do tipo 'vazio'.");
 
                 if (_palavrasReservadas.Contains(pNome))
@@ -823,6 +866,9 @@ namespace Jogo.Core
                 if (!vistos.Add(pNome))
                     throw new Exception($"L:{p.Start.Line}|O parâmetro '{pNome}' está repetido.");
             }
+            var tipoRetorno = LerTipo(context.tipoCompleto());
+            if (tipoRetorno.EhVetor && tipoRetorno.Elemento == "vazio")
+                throw new Exception($"L:{linha}|Uma função não pode retornar 'Vetor de vazio'.");
 
             _funcoesJogador[nomeDaFuncao] = context;
             return null!;
@@ -830,12 +876,12 @@ namespace Jogo.Core
         
         public override object VisitComandoRetorno([NotNull] LinguagemParser.ComandoRetornoContext context)
         {
+            if (_escoposLocais.Count == 0)
+                throw new Exception($"L:{context.Start.Line}|'retorna' só pode ser usado dentro de uma função.");
+
             _jogo.DestacarLinhaAtual(context.Start.Line, "retorna");
             System.Threading.Thread.Sleep(TEMPO_LINHA);
             object? valorDeRetorno = context.expressao() != null ? Visit(context.expressao()) : null;
-        
-            if (_escoposLocais.Count == 0)
-                throw new Exception($"L:{context.Start.Line}|'retorna' só pode ser usado dentro de uma função.");
 
             throw new ExcecaoRetorno(valorDeRetorno, context.expressao() != null);
         }
@@ -906,12 +952,6 @@ namespace Jogo.Core
             else if (context.acessoLista() != null)
             {
                 // Caso: area[1].atributo
-                baseObj = Visit(context.acessoLista());
-                nomeBase = context.acessoLista().GetText();
-            }
-            else if (context.acessoLista() != null)
-            {
-                // Caso: lista[i].atributo
                 baseObj = Visit(context.acessoLista());
                 nomeBase = context.acessoLista().GetText();
             }

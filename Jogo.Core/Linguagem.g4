@@ -35,10 +35,10 @@ estruturaSenaoSe: 'senao' 'se' '(' expressao ')' '{' comando* '}';
 // Controle de fluxo principal
 estruturaSe: SE '(' expressao ')' '{' comando* '}' estruturaSenaoSe* estruturaSenao?;
 
-parametro: TIPO ID;
+parametro: tipoCompleto ID;
 
-// Exemplo: int curar(int forca, string alvo): ... fim funcao
-declaracaoFuncao: TIPO ID '(' (parametro (',' parametro)*)? ')' '{' comando* '}';
+declaracaoFuncao: tipoCompleto ID '(' (parametro (',' parametro)*)? ')' '{' comando* '}';
+
 
 // Regra de retorno
 comandoRetorno: 'retorna' expressao?;
@@ -73,12 +73,15 @@ acessoLista: ID '[' expressao ']';
 atribuicaoLista: ID '[' expressao ']' '=' expressao;
 
 
+
 // ==========================================
 // LEXER (Vocabulário / Tokens - MAIÚSCULAS)
 // ==========================================
 
 // Tipos 
 TIPO: 'vazio' | 'int' | 'float' | 'bool' | 'string'| 'Inimigo' | 'Arena' | 'Ataque' | 'Direcao';
+
+tipoCompleto: TIPO | 'Vetor' 'de' TIPO;
 
 // Palavras reservadas
 SE: 'se';

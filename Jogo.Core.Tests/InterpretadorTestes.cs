@@ -657,15 +657,14 @@ namespace Jogo.Core.Tests
             int cleber(){retorna 1}
             int j = cleber()
 
-            int a = Nulo
-            a = 1
+            float a = 3
+            a = 1.0
             Vetor de string cleiton = ["1", "oi", "3"]
 
+            se (a == 1){escreva(cleiton[1])}
 
-
-            se (j == 1){escreva(cleiton[1])}
-            
             escreva("oi")
+
             """;
 
             Executar(codigo, visitor);
@@ -738,7 +737,80 @@ namespace Jogo.Core.Tests
             jogoMock.Received(1).Escreva("SlimeDeFogo");
             jogoMock.Received(1).Escreva("80");
         }
+        [Fact]
+        public void E_Nao_Deve_Avaliar_Lado_Direito_Quando_Esquerdo_For_Falso()
+        {
+            var jogo = Substitute.For<IAcoesDoJogo>();
+            Executar("bool r = Falso e podeMover(Cima)", new MeuVisitor(jogo));
+            jogo.DidNotReceive().PodeMover(Arg.Any<string>());
+        }
+
+        [Fact]
+        public void Ou_Nao_Deve_Avaliar_Lado_Direito_Quando_Esquerdo_For_Verdadeiro()
+        {
+            var jogo = Substitute.For<IAcoesDoJogo>();
+            Executar("bool r = Verdadeiro ou podeMover(Cima)", new MeuVisitor(jogo));
+            jogo.DidNotReceive().PodeMover(Arg.Any<string>());
+        }
+        [Fact]
+        public void Comparacao_De_Inteiros_Grandes_Deve_Ser_Exata()
+        {
+            var jogo = Substitute.For<IAcoesDoJogo>();
+            Executar("se(16777217 == 16777216){\nescreva(\"igual\")\n}", new MeuVisitor(jogo));
+            jogo.DidNotReceive().Escreva(Arg.Any<string>());
+        }
+        [Fact]
+        public void Funcao_Deve_Receber_Vetor_Como_Parametro()
+        {
+            var jogo = Substitute.For<IAcoesDoJogo>();
+            string codigo =
+                "int somar(Vetor de int v)\n{\n" +
+                "int total = 0\nint i = 0\n" +
+                "enquanto(i < tamanho(v))\n{\ntotal = total + v[i]\ni = i + 1\n}\n" +
+                "retorna total\n}\n" +
+                "Vetor de int numeros = [1, 2, 3]\n" +
+                "escreva(somar(numeros))";
+            Executar(codigo, new MeuVisitor(jogo));
+            jogo.Received(1).Escreva("6");
+        }
+
+        [Fact]
+        public void Funcao_Deve_Retornar_Vetor()
+        {
+            var jogo = Substitute.For<IAcoesDoJogo>();
+            string codigo =
+                "Vetor de int criar()\n{\nVetor de int x = [4, 5]\nretorna x\n}\n" +
+                "Vetor de int r = criar()\n" +
+                "escreva(tamanho(r))";
+            Executar(codigo, new MeuVisitor(jogo));
+            jogo.Received(1).Escreva("2");
+        }
+
+        [Fact]
+        public void Funcao_Deve_Recusar_Vetor_De_Tipo_Diferente()
+        {
+            string codigo =
+                "int f(Vetor de int v)\n{\nretorna 1\n}\n" +
+                "Vetor de string s = [\"a\"]\n" +
+                "int r = f(s)";
+            var ex = Assert.Throws<Exception>(() =>
+                Executar(codigo, new MeuVisitor(Substitute.For<IAcoesDoJogo>())));
+            Assert.Contains("espera 'Vetor de int'", ex.Message);
+        }
+
+        [Fact]
+        public void Parametro_Escalar_Nao_Deve_Aceitar_Vetor()
+        {
+            string codigo =
+                "int f(int v)\n{\nretorna 1\n}\n" +
+                "Vetor de int a = [1, 2]\n" +
+                "int r = f(a)";
+            var ex = Assert.Throws<Exception>(() =>
+                Executar(codigo, new MeuVisitor(Substitute.For<IAcoesDoJogo>())));
+            Assert.Contains("mas recebeu um vetor", ex.Message);
+        }
 
     }
+    
 
 }
