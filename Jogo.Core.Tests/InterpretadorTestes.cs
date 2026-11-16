@@ -54,7 +54,6 @@ namespace Jogo.Core.Tests
 
             var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
             
-            // Atualizado para a nova mensagem de ataque
             Assert.Contains("O ataque 'chocolate' é inválido ou você não o possui.", excecao.Message);
         }
 
@@ -69,7 +68,6 @@ namespace Jogo.Core.Tests
 
             var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
             
-            // Exceção estoura contendo a palavra Pudim ou a palavra inválido
             Assert.True(excecao.Message.Contains("Pudim") || excecao.Message.ToLower().Contains("O inimigo 'Pudim' é inválido"));
         }
 
@@ -79,7 +77,6 @@ namespace Jogo.Core.Tests
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
-            // Integração: 'Orc' é constante, 'minhaMagia' é variável local
             string codigo = "string minhaMagia = \"Fogo\"\n" +
                             "atacar(\"Orc\", minhaMagia)"; 
             
@@ -138,7 +135,6 @@ namespace Jogo.Core.Tests
             string codigo = "int numero = \"texto\""; 
 
             var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
-            // Atualizado para a mensagem que o seu amigo colocou no código
             Assert.Contains("não corresponde ao tipo", excecao.Message);
         }
 
@@ -148,7 +144,6 @@ namespace Jogo.Core.Tests
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
-            // 'magiaMisteriosa' não foi declarada nem é constante
             string codigo = "atacar(\"Orc\", magiaMisteriosa)"; 
 
             var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
@@ -181,9 +176,9 @@ namespace Jogo.Core.Tests
             var visitor = new MeuVisitor(jogoMock);
 
             string codigo = "int vidas = 1\n" +
-                            "se (vidas == 1){\n" +
-                            "    mover(Cima)"+
-                            "}"; 
+                            "se (vidas == 1):\n" +
+                            "    mover(Cima)\n" +
+                            "fim se"; 
             Executar(codigo, visitor);
 
             jogoMock.Received(1).Mover("Cima");
@@ -196,9 +191,9 @@ namespace Jogo.Core.Tests
             var visitor = new MeuVisitor(jogoMock);
 
             string codigo = "int vidas = 0\n" +
-                            "se (vidas == 1){\n" +
-                            "    mover(Cima)" +
-                            "}"; 
+                            "se (vidas == 1):\n" +
+                            "    mover(Cima)\n" +
+                            "fim se"; 
             
             Executar(codigo, visitor);
 
@@ -213,16 +208,14 @@ namespace Jogo.Core.Tests
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
-            // O jogador quer dar 3 passos para o Cima
             string codigo = "int passos = 0\n" +
-                            "enquanto (passos < 3){\n" +
+                            "enquanto (passos < 3):\n" +
                             "    mover(Cima)\n" +
                             "    passos = passos + 1\n" +
-                            "}";
+                            "fim enquanto";
             
             Executar(codigo, visitor);
 
-            // O MOCK confere se a função Mover("Cima") foi chamada EXATAMENTE 3 vezes
             jogoMock.Received(3).Mover("Cima");
         }
 
@@ -233,10 +226,10 @@ namespace Jogo.Core.Tests
             var visitor = new MeuVisitor(jogoMock);
 
             string codigo = "int passos = 5\n" +
-                            "enquanto (passos < 3){\n" +
+                            "enquanto (passos < 3):\n" +
                             "    mover(Baixo)\n" +
                             "    passos = passos + 1\n" +
-                            "}"; 
+                            "fim enquanto"; 
             
             Executar(codigo, visitor);
 
@@ -249,7 +242,6 @@ namespace Jogo.Core.Tests
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
-            // Tentativa de criar uma variável com nome de constante
             string codigo = "string Fogo = \"agua\""; 
             
             var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
@@ -263,15 +255,14 @@ namespace Jogo.Core.Tests
             var visitor = new MeuVisitor(jogoMock);
 
             string codigo = "int vidas = 1\n" +
-                            "se (vidas == 1){\n" +
+                            "se (vidas == 1):\n" +
                             "    mover(Cima)\n" +
-                            "}senao{\n" +
+                            "senao:\n" +
                             "    mover(Baixo)\n" +
-                            "}"; 
+                            "fim se"; 
             
             Executar(codigo, visitor);
 
-            // Garante que moveu pro Cima e ignorou o Baixo
             jogoMock.Received(1).Mover("Cima");
             jogoMock.DidNotReceive().Mover("Baixo");
         }
@@ -283,14 +274,14 @@ namespace Jogo.Core.Tests
             var visitor = new MeuVisitor(jogoMock);
 
             string codigo = "int i = 0\n" +
-                            "enquanto (i < 10){\n" +
-                            "    se (i < 5){\n" +
+                            "enquanto (i < 10):\n" +
+                            "    se (i < 5):\n" +
                             "        mover(Cima)\n" +
-                            "    }senao{\n" +
+                            "    senao:\n" +
                             "        mover(Baixo)\n" +
-                            "    }\n" +
+                            "    fim se\n" +
                             "    i = i + 1 \n" +
-                            "}";
+                            "fim enquanto";
             
             Executar(codigo, visitor);
 
@@ -314,7 +305,7 @@ namespace Jogo.Core.Tests
 
             string codigo = 
                 "mover(\"Cima\")\n" +
-                "atacar(\"Orc\", \"Fogo\")\n" +  // Atualizado para F maiúsculo
+                "atacar(\"Orc\", \"Fogo\")\n" + 
                 "podeMover(\"Direita\")\n" +
                 "tempo()\n" +
                 "vidaAtual()\n" +
@@ -371,19 +362,18 @@ namespace Jogo.Core.Tests
 
             string codigo = 
                 "int vida = 5\n" +
-                "se (vida > 10){\n" +
+                "se (vida > 10):\n" +
                 "    mover(\"Cima\")\n" +
-                "}senao se (vida == 8){\n" +
+                "senao se (vida == 8):\n" +
                 "    mover(\"Baixo\")\n" +
-                "}senao se (vida == 5){\n" +
+                "senao se (vida == 5):\n" +
                 "    mover(\"Direita\")\n" +
-                "}senao{\n" +
+                "senao:\n" +
                 "    mover(\"Esquerda\")\n" +
-                "}"; 
+                "fim se"; 
             
             Executar(codigo, visitor);
 
-            // VALIDAÇÃO
             jogoMock.Received(1).Mover("Direita");
             jogoMock.DidNotReceive().Mover("Cima");
             jogoMock.DidNotReceive().Mover("Baixo");
@@ -398,22 +388,19 @@ namespace Jogo.Core.Tests
 
             string codigo = 
                 "int vida = 10\n" +
-                "vazio BuffTemporario(int vida){\n" +
+                "vazio BuffTemporario(int vida):\n" +
                 "    vida = 999\n" + 
                 "    retorna\n" +  
-                "}\n" +
+                "fim funcao\n" +
                 "\n" +
                 "BuffTemporario(50)\n" +
                 "\n" +
-                "se (vida == 10){\n" +
+                "se (vida == 10):\n" +
                 "    mover(\"Cima\")\n" + 
-                "}";
+                "fim se";
 
             Executar(codigo, visitor);
 
-            // VALIDAÇÃO
-            // Se a memória global foi protegida, a variável original continuou valendo 10 e ele moveu.
-            // Se o sistema de escopo falhou, ela virou 999 e ele não vai mover.
             jogoMock.Received(1).Mover("Cima");
         }
 
@@ -424,12 +411,12 @@ namespace Jogo.Core.Tests
             var visitor = new MeuVisitor(jogoMock);
 
             string codigo = 
-                "string EscolherAtaque(int hpInimigo){\n" +
-                "    se (hpInimigo > 50){\n" +
+                "string EscolherAtaque(int hpInimigo):\n" +
+                "    se (hpInimigo > 50):\n" +
                 "        retorna \"ExplosaoFogo\"\n" +
-                "    }\n" +
+                "    fim se\n" +
                 "    retorna \"Gelo\"\n" +
-                "}\n" +
+                "fim funcao\n" +
                 "\n" +
                 "atacar(\"Orc\", EscolherAtaque(100))\n" +
                 "\n" +
@@ -437,15 +424,10 @@ namespace Jogo.Core.Tests
 
             Executar(codigo, visitor);
 
-            // VALIDAÇÃO
-            // Garante que o alvo temporário recebeu a magia forte no primeiro hit
             jogoMock.Received(1).Atacar("Orc", "ExplosaoFogo");
-            
-            // Garante que o alvo temporário recebeu a magia fraca no segundo hit
             jogoMock.Received(1).Atacar("Orc", "Gelo");
         }
 
-        // Método auxiliar
         private void Executar(string input, MeuVisitor visitor)
         {
             var arvore = AnalisadorDeCodigo.Analisar(input);
@@ -455,44 +437,32 @@ namespace Jogo.Core.Tests
         [Fact]
         public void Deve_Executar_Bloco_Se_Inverter_Falso_Para_Verdadeiro()
         {
-            // 1. Prepara o Godot de mentira (Mock)
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
-            // 2. O Script do Jogador
-            // Como !Falso vira Verdadeiro, ele DEVE entrar no 'se' e tentar mover.
-            string codigo = "se(!Falso){\n" +
+            string codigo = "se(!Falso):\n" +
                             "    mover(Cima)\n" +
-                            "}"; 
+                            "fim se"; 
 
-            // 3. Roda o interpretador
             Executar(codigo, visitor);
 
-            // 4. Prova: Verifica se o Godot recebeu a ordem exata 1 vez
             jogoMock.Received(1).Mover("Cima");
         }
 
         [Fact]
         public void Nao_Deve_Executar_Bloco_Se_Inverter_Verdadeiro_Para_Falso()
         {
-            // 1. Prepara o Godot de mentira (Mock)
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
-            // 2. O Script do Jogador
-            // Como !Verdadeiro vira Falso, a porta tranca e ele NÃO deve entrar no 'se'.
-            string codigo = "se(!Verdadeiro){\n" +
+            string codigo = "se(!Verdadeiro):\n" +
                             "    mover(Cima)\n" +
-                            "}"; 
+                            "fim se"; 
 
-            // 3. Roda o interpretador
             Executar(codigo, visitor);
 
-            // 4. Prova: Garante que o motor do jogo NÃO recebeu NENHUM comando de mover
             jogoMock.DidNotReceive().Mover(Arg.Any<string>());
         }
-
-        // TESTES DE LISTAS E VETORES
 
         [Fact]
         public void Deve_Concatenar_Diferentes_Tipos_E_Escrever()
@@ -500,7 +470,6 @@ namespace Jogo.Core.Tests
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
-            // Testa: String + Inteiro + String + Booleano
             string codigo = "int numero = 457\n" +
                             "bool condicao = Falso\n" +
                             "string texto = \"HELLO \" + numero + \"\\nA condicao eh: \" + condicao\n" +
@@ -508,32 +477,27 @@ namespace Jogo.Core.Tests
 
             Executar(codigo, visitor);
 
-            // O texto exato que deve chegar no Godot, já com a quebra de linha real
             string resultadoEsperado = "HELLO 457\nA condicao eh: Falso";
-            
             jogoMock.Received(1).Escreva(resultadoEsperado);
         }
+
         [Fact]
         public void Deve_Acessar_Atributos_De_Um_Inimigo()
         {
             var jogoMock = Substitute.For<IAcoesDoJogo>();
-            
-            // 1. Precisamos avisar o Mock que o inimigo existe ANTES de pedir o nome dele!
             jogoMock.InimigoExiste("Vampiro").Returns(true);
             jogoMock.ObterNomeInimigo("Vampiro").Returns("Vampiro");
             
             var visitor = new MeuVisitor(jogoMock);
         
-            // 2. Código com a nova sintaxe de chaves ativada e usando apenas atributos válidos
             string codigo = "Inimigo alvo = \"Vampiro\"\n" +
                             "string n = alvo.nome\n" +
-                            "se (n == \"Vampiro\") {\n" +
+                            "se (n == \"Vampiro\") :\n" +
                             "    mover(Cima)\n" +
-                            "}"; 
+                            "fim se"; 
         
             Executar(codigo, visitor);
         
-            // VALIDAÇÃO
             jogoMock.Received(1).ObterNomeInimigo("Vampiro");
             jogoMock.Received(1).Mover("Cima");
         }
@@ -544,12 +508,10 @@ namespace Jogo.Core.Tests
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
-            // Tenta acessar .nome de um número inteiro (Tem que dar erro!)
             string codigo = "int numero = 42\n" +
                             "string n = numero.nome"; 
 
             var excecao = Assert.Throws<Exception>(() => Executar(codigo, visitor));
-            
             Assert.Contains("não é um Inimigo", excecao.Message);
         }
 
@@ -557,23 +519,21 @@ namespace Jogo.Core.Tests
         public void Deve_Acessar_Atributo_Vida_E_Usar_Operador_Diferente()
         {
             var jogoMock = Substitute.For<IAcoesDoJogo>();
-            
-            // Configura o Mock para dizer que o SlimeDeFogo tem 50 de vida
             jogoMock.ObterVidaInimigo("SlimeDeFogo").Returns(50);
             jogoMock.ObterNomeInimigo("SlimeDeFogo").Returns("SlimeDeFogo");
             
             var visitor = new MeuVisitor(jogoMock);
 
-            // O código verifica se a vida é diferente de 100 e se o nome NÃO é Orc
             string codigo = "Inimigo alvo = \"SlimeDeFogo\"\n" +
-                            "se (alvo.vida != 100 e alvo.nome != \"Orc\"){\n" +
+                            "se (alvo.vida != 100 e alvo.nome != \"Orc\"):\n" +
                             "    escreva(\"Condicoes funcionaram!\")\n" +
-                            "}"; 
+                            "fim se"; 
 
             Executar(codigo, visitor);
 
             jogoMock.Received(1).Escreva("Condicoes funcionaram!");
         }
+
         [Fact]
         public void Deve_Calcular_Min_E_Max_Corretamente()
         {
@@ -588,17 +548,17 @@ namespace Jogo.Core.Tests
 
             jogoMock.Received(1).Escreva("Menor: 10.5 Maior: 5");
         }
+
         [Fact]
         public void Deve_Gerar_Numero_Aleatorio_Entre_Zero_E_Um()
         {
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
-            // Gera o número e usa as condicionais para validar se está no limite correto
             string codigo = "float num = aleatorio()\n" +
-                            "se (num >= 0.0 e num <= 1.0){\n" +
+                            "se (num >= 0.0 e num <= 1.0):\n" +
                             "    escreva(\"Numero dentro do limite\")\n" +
-                            "}"; 
+                            "fim se"; 
 
             Executar(codigo, visitor);
 
@@ -654,14 +614,16 @@ namespace Jogo.Core.Tests
             var visitor = new MeuVisitor(jogoMock);
 
             string codigo = """
-            int cleber(){retorna 1}
+            int cleber(): retorna 1 fim funcao
             int j = cleber()
 
             float a = 3
             a = 1.0
             Vetor de string cleiton = ["1", "oi", "3"]
 
-            se (a == 1){escreva(cleiton[1])}
+            string s = cleiton[trunca(aleatorio())]
+
+            se (a == 1): escreva(cleiton[1]) fim se
 
             escreva("oi")
 
@@ -677,15 +639,16 @@ namespace Jogo.Core.Tests
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             var visitor = new MeuVisitor(jogoMock);
 
+            // Temos um 'se' avulso, seguido de uma cadeia 'se/senao'.
             string codigo = 
-                "se (2.0 == 2) {\n" +
+                "se (2.0 == 2) :\n" +
                 "    escreva(\"igual_ok\")\n" +
-                "}\n" +
-                "se (2.0 != 2) {\n" +
+                "fim se\n" +
+                "se (2.0 != 2) :\n" +
                 "    escreva(\"erro_diferente\")\n" +
-                "} senao {\n" +
+                "senao :\n" +
                 "    escreva(\"diferente_ok\")\n" +
-                "}";
+                "fim se";
 
             Executar(codigo, visitor);
 
@@ -720,7 +683,6 @@ namespace Jogo.Core.Tests
             var jogoMock = Substitute.For<IAcoesDoJogo>();
             jogoMock.EscanearArea().Returns(new System.Collections.Generic.List<string> { "Goblin", "SlimeDeFogo" });
             
-            // Configura o Mock para reconhecer o inimigo na posição 1 ("SlimeDeFogo")
             jogoMock.InimigoExiste("SlimeDeFogo").Returns(true);
             jogoMock.ObterNomeInimigo("SlimeDeFogo").Returns("SlimeDeFogo");
             jogoMock.ObterVidaInimigo("SlimeDeFogo").Returns(80);
@@ -737,6 +699,7 @@ namespace Jogo.Core.Tests
             jogoMock.Received(1).Escreva("SlimeDeFogo");
             jogoMock.Received(1).Escreva("80");
         }
+
         [Fact]
         public void E_Nao_Deve_Avaliar_Lado_Direito_Quando_Esquerdo_For_Falso()
         {
@@ -752,22 +715,24 @@ namespace Jogo.Core.Tests
             Executar("bool r = Verdadeiro ou podeMover(Cima)", new MeuVisitor(jogo));
             jogo.DidNotReceive().PodeMover(Arg.Any<string>());
         }
+
         [Fact]
         public void Comparacao_De_Inteiros_Grandes_Deve_Ser_Exata()
         {
             var jogo = Substitute.For<IAcoesDoJogo>();
-            Executar("se(16777217 == 16777216){\nescreva(\"igual\")\n}", new MeuVisitor(jogo));
+            Executar("se(16777217 == 16777216):\nescreva(\"igual\")\nfim se", new MeuVisitor(jogo));
             jogo.DidNotReceive().Escreva(Arg.Any<string>());
         }
+
         [Fact]
         public void Funcao_Deve_Receber_Vetor_Como_Parametro()
         {
             var jogo = Substitute.For<IAcoesDoJogo>();
             string codigo =
-                "int somar(Vetor de int v)\n{\n" +
+                "int somar(Vetor de int v)\n:\n" +
                 "int total = 0\nint i = 0\n" +
-                "enquanto(i < tamanho(v))\n{\ntotal = total + v[i]\ni = i + 1\n}\n" +
-                "retorna total\n}\n" +
+                "enquanto(i < tamanho(v))\n:\ntotal = total + v[i]\ni = i + 1\nfim enquanto\n" +
+                "retorna total\nfim funcao\n" +
                 "Vetor de int numeros = [1, 2, 3]\n" +
                 "escreva(somar(numeros))";
             Executar(codigo, new MeuVisitor(jogo));
@@ -779,7 +744,7 @@ namespace Jogo.Core.Tests
         {
             var jogo = Substitute.For<IAcoesDoJogo>();
             string codigo =
-                "Vetor de int criar()\n{\nVetor de int x = [4, 5]\nretorna x\n}\n" +
+                "Vetor de int criar()\n:\nVetor de int x = [4, 5]\nretorna x\nfim funcao\n" +
                 "Vetor de int r = criar()\n" +
                 "escreva(tamanho(r))";
             Executar(codigo, new MeuVisitor(jogo));
@@ -790,7 +755,7 @@ namespace Jogo.Core.Tests
         public void Funcao_Deve_Recusar_Vetor_De_Tipo_Diferente()
         {
             string codigo =
-                "int f(Vetor de int v)\n{\nretorna 1\n}\n" +
+                "int f(Vetor de int v)\n:\nretorna 1\nfim funcao\n" +
                 "Vetor de string s = [\"a\"]\n" +
                 "int r = f(s)";
             var ex = Assert.Throws<Exception>(() =>
@@ -802,15 +767,12 @@ namespace Jogo.Core.Tests
         public void Parametro_Escalar_Nao_Deve_Aceitar_Vetor()
         {
             string codigo =
-                "int f(int v)\n{\nretorna 1\n}\n" +
+                "int f(int v)\n:\nretorna 1\nfim funcao\n" +
                 "Vetor de int a = [1, 2]\n" +
                 "int r = f(a)";
             var ex = Assert.Throws<Exception>(() =>
                 Executar(codigo, new MeuVisitor(Substitute.For<IAcoesDoJogo>())));
             Assert.Contains("mas recebeu um vetor", ex.Message);
         }
-
     }
-    
-
 }

@@ -927,7 +927,7 @@ namespace Jogo.Core
 
                     if (indice >= lista.Count)
                     {
-                        return null!;
+                        throw new Exception($"L:{context.Start.Line}|Índice '{indice}' inválido. O índice está fora dos limites. (A lista vai de 0 até {lista.Count - 1})");
                     }
                     
                     return lista[indice]; 

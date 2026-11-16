@@ -24,20 +24,20 @@ declaracaoVariavel: TIPO ID '=' expressao;
 atribuicao: ID '=' expressao;
 
 // Controle de fluxo: enquanto(condição):
-estruturaEnquanto: ENQUANTO '(' expressao ')' '{' comando* '}';
+estruturaEnquanto: ENQUANTO '(' expressao ')' ':' comando* 'fim' 'enquanto';
 
 // O bloco 'senão'
-estruturaSenao: 'senao' '{' comando* '}';
+estruturaSenao: 'senao' ':' comando*;
 
 // O bloco 'senão se'
-estruturaSenaoSe: 'senao' 'se' '(' expressao ')' '{' comando* '}';
+estruturaSenaoSe: 'senao' 'se' '(' expressao ')' ':' comando*;
 
 // Controle de fluxo principal
-estruturaSe: SE '(' expressao ')' '{' comando* '}' estruturaSenaoSe* estruturaSenao?;
+estruturaSe: SE '(' expressao ')' ':' comando* estruturaSenaoSe* estruturaSenao? 'fim' 'se';
 
 parametro: tipoCompleto ID;
 
-declaracaoFuncao: tipoCompleto ID '(' (parametro (',' parametro)*)? ')' '{' comando* '}';
+declaracaoFuncao: tipoCompleto ID '(' (parametro (',' parametro)*)? ')' ':' comando* 'fim' 'funcao';
 
 
 // Regra de retorno
