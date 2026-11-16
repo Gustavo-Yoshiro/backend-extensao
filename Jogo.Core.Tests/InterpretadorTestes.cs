@@ -596,6 +596,28 @@ namespace Jogo.Core.Tests
             var ex = Assert.Throws<Exception>(() => Executar("Vetor de int v = [1, \"a\"]", visitor));
             Assert.Contains("intruso", ex.Message);
         }
+
+        [Fact]
+        public void Deve_Separar_Tipos_Do_Jogo_Do_Tipo_String_Em_Vetores()
+        {
+            var visitor = new MeuVisitor(Substitute.For<IAcoesDoJogo>());
+            var ex = Assert.Throws<Exception>(() => Executar("Vetor de string s = [Cima]", visitor));
+            Assert.Contains("intruso do tipo 'Direcao'", ex.Message);
+
+            var jogoMock = Substitute.For<IAcoesDoJogo>();
+            visitor = new MeuVisitor(jogoMock);
+            Executar("Vetor de Direcao direcoes = [Cima, Baixo]\n" +
+                     "Direcao direcao = Cima\n" +
+                     "Ataque ataque = Gelo\n" +
+                     "Arena local = Floresta\n" +
+                     "mover(direcao)\n" +
+                     "atacar(\"Orc\", ataque)\n" +
+                     "arena(local)", visitor);
+
+            jogoMock.Received(1).Mover("Cima");
+            jogoMock.Received(1).Atacar("Orc", "Gelo");
+            jogoMock.Received(1).EntrarArena("Floresta");
+        }
         
         [Fact]
         public void Deve_Barrar_Atribuicao_De_Tipo_Errado_No_Vetor()
@@ -621,7 +643,7 @@ namespace Jogo.Core.Tests
             a = 1.0
             Vetor de string cleiton = ["1", "oi", "3"]
 
-            string s = cleiton[trunca(aleatorio())]
+            Vetor de Arena s = [Campos]
 
             se (a == 1): escreva(cleiton[1]) fim se
 

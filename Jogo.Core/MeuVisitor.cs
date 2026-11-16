@@ -15,6 +15,26 @@ namespace Jogo.Core
     }
     public class MeuVisitor : LinguagemBaseVisitor<object>
     {
+        private readonly record struct ValorInimigo(string Valor)
+        {
+            public override string ToString() => Valor;
+        }
+
+        private readonly record struct ValorArena(string Valor)
+        {
+            public override string ToString() => Valor;
+        }
+
+        private readonly record struct ValorAtaque(string Valor)
+        {
+            public override string ToString() => Valor;
+        }
+
+        private readonly record struct ValorDirecao(string Valor)
+        {
+            public override string ToString() => Valor;
+        }
+
         const int TEMPO_LINHA = 0;
         private const int DELAY_TRANSICAO_CENA = 1000;
         private const int MAX_PROFUNDIDADE_RECURSAO = 100;
@@ -72,7 +92,7 @@ namespace Jogo.Core
 
             foreach (var constante in _palavrasReservadas)
             {
-                _memoria[constante] = constante;
+                _memoria[constante] = CriarValorJogo(constante);
             }
         }
         private static int ArgInt(List<object> args, int i, string funcao, int linha)
@@ -94,10 +114,27 @@ namespace Jogo.Core
             float => "float",
             bool => "bool",
             string => "string",
+            ValorInimigo => "Inimigo",
+            ValorArena => "Arena",
+            ValorAtaque => "Ataque",
+            ValorDirecao => "Direcao",
             Vetor vt => $"Vetor de {vt.TipoElemento}",
             List<object> => "vetor",
             _ => v.GetType().Name
         };
+
+        private static bool EhTexto(object valor)
+            => valor is string or ValorInimigo or ValorArena or ValorAtaque or ValorDirecao;
+
+        private static object CriarValorJogo(string valor) => valor switch
+        {
+            "Cima" or "Baixo" or "Direita" or "Esquerda" => new ValorDirecao(valor),
+            "EsferaAzul" or "EsferaVermelha" or "Raio" or "Gelo" or "Fogo" or "ExplosaoFogo" or "ExplosaoGelo" or "Alho" => new ValorAtaque(valor),
+            "Campos" or "Floresta" or "Labirinto" => new ValorArena(valor),
+            "Goblin" or "Esqueleto" or "SlimeDeFogo" or "SlimeDeGelo" or "Lobisomem" or "Orc" or "Fantasma" or "Vampiro" => new ValorInimigo(valor),
+            _ => valor
+        };
+
         private readonly record struct TipoDecl(string Elemento, bool EhVetor)
         {
             public override string ToString() => EhVetor ? $"Vetor de {Elemento}" : Elemento;
@@ -114,7 +151,8 @@ namespace Jogo.Core
                 if (valor is List<object>)
                     throw new Exception($"L:{linha}|'{nome}' espera '{tipo}', mas recebeu um vetor.");
 
-                VerificarTipo(tipo.Elemento, valor!, nome, linha);
+                object valorNormalizado = Normalizar(tipo.Elemento, valor!);
+                VerificarTipo(tipo.Elemento, valorNormalizado, nome, linha);
                 return;
             }
 
@@ -214,7 +252,7 @@ namespace Jogo.Core
                 if (context.DIFERENTE() != null) return !SaoIguais(esquerdo, direito);
 
 
-                if (context.SOMA() != null && (esquerdo is string || direito is string))
+                if (context.SOMA() != null && (EhTexto(esquerdo) || EhTexto(direito)))
                 {
                     string strEsq = ConverterParaStringVisivel(esquerdo);
                     string strDir = ConverterParaStringVisivel(direito);
@@ -295,8 +333,8 @@ namespace Jogo.Core
             if (valorResolvido is List<object>)
                 throw new Exception($"L:{linha}|Para criar uma lista, use: Vetor de {tipoDeclarado} {nomeDaVariavel} = [...]");
         
-            VerificarTipo(tipoDeclarado, valorResolvido, nomeDaVariavel, linha);
             valorResolvido = Normalizar(tipoDeclarado, valorResolvido);
+            VerificarTipo(tipoDeclarado, valorResolvido, nomeDaVariavel, linha);
         
             if (_escoposLocais.Count > 0)
             {
@@ -345,17 +383,31 @@ namespace Jogo.Core
                 case "float":   return valor is float || valor is int;
                 case "bool":    return valor is bool;
                 case "string":  return valor is string;
-                case "Direcao": return valor is string d && _direcoes.Contains(d);
-                case "Ataque":  return valor is string a && _ataques.Contains(a);
-                case "Arena":   return valor is string r && _arenas.Contains(r);
-                case "Inimigo": return valor is string;
+                case "Direcao": return valor is ValorDirecao;
+                case "Ataque":  return valor is ValorAtaque;
+                case "Arena":   return valor is ValorArena;
+                case "Inimigo": return valor is ValorInimigo;
                 default:        return false;
             }
         }
         
         // Função auxiliar 
-        private static object Normalizar(string tipo, object valor)
-            => (tipo == "float" && valor is int i) ? (object)(float)i : valor;
+        private object Normalizar(string tipo, object valor)
+        {
+            if (tipo == "float" && valor is int i) return (float)i;
+            if (valor is string texto)
+            {
+                return tipo switch
+                {
+                    "Inimigo" => new ValorInimigo(texto),
+                    "Arena" when _arenas.Contains(texto) => new ValorArena(texto),
+                    "Ataque" when _ataques.Contains(texto) => new ValorAtaque(texto),
+                    "Direcao" when _direcoes.Contains(texto) => new ValorDirecao(texto),
+                    _ => valor
+                };
+            }
+            return valor;
+        }
 
         private void VerificarTipo(string tipoEsperado, object valor, string nomeVar, int linha)
         {
@@ -422,8 +474,8 @@ namespace Jogo.Core
                 if (tipoDeclarado == null)
                     throw new Exception($"L:{linha}|Erro interno: o tipo da variável '{nomeDaVariavel}' não foi registrado.");
 
-                VerificarTipo(tipoDeclarado, novoValor, nomeDaVariavel, linha);
                 novoValor = Normalizar(tipoDeclarado, novoValor);
+                VerificarTipo(tipoDeclarado, novoValor, nomeDaVariavel, linha);
             }
 
             if (ehLocal) _escoposLocais.Peek()[nomeDaVariavel] = novoValor;
@@ -594,7 +646,7 @@ namespace Jogo.Core
                     if (args.Count != 0) throw new Exception($"L:{context.Start.Line}|'inimigoMaisProximo()' não recebe parâmetros.");
                     string idInimigo = _jogo.InimigoMaisProximo();
                     if (string.IsNullOrEmpty(idInimigo) || idInimigo == "vazio") return null!;
-                    return idInimigo;
+                    return new ValorInimigo(idInimigo);
 
                 // ==========================================
                 // SISTEMA RELACIONADOS A ARENA
@@ -609,7 +661,7 @@ namespace Jogo.Core
 
                     foreach(string inimigo in inimigosDetectados)
                     {
-                        listaParaOJogador.Add(inimigo);
+                        listaParaOJogador.Add(new ValorInimigo(inimigo));
                     }
                     
                     return new Vetor("Inimigo", listaParaOJogador);
@@ -977,8 +1029,9 @@ namespace Jogo.Core
             if (baseObj == null) return null!;
 
             // 3. Lógica de acesso (já configurada para Inimigos)
-            if (baseObj is string idInimigo)
+            if (baseObj is ValorInimigo inimigo)
             {
+                string idInimigo = inimigo.Valor;
                 if (!_jogo.InimigoExiste(idInimigo)) return null!;
 
                 switch (atributo)
@@ -1011,6 +1064,13 @@ namespace Jogo.Core
                 return "[" + string.Join(", ", itensFormatados) + "]";
             }
             
+            if (valor is ValorInimigo inimigo)
+            {
+                return _jogo.InimigoExiste(inimigo.Valor)
+                    ? _jogo.ObterNomeInimigo(inimigo.Valor)
+                    : inimigo.Valor;
+            }
+
             if (valor is string texto)
             {
                 if (_jogo.InimigoExiste(texto))
